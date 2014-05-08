@@ -3,7 +3,7 @@ import numpy as np
 import scipy.interpolate
 import pickle
 import os
-import bayessb
+import bayessb_new as bayessb
 from time import strftime
 import socket
 
@@ -28,7 +28,7 @@ obs_totals = [model.parameters['Bid_0'].value,
 
 # Load experimental data file
 if socket.gethostname() == 'Erins-MacBook-Pro.local':
-    earm_path = '/Erin/git/earm'
+    earm_path = '/Users/Erin/git/earm'
 if socket.gethostname() == 'localhost':
     # This is the puma host name
     earm_path = '/home/shockle/earm'

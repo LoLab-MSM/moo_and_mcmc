@@ -3,8 +3,9 @@ import numpy as np
 import scipy.interpolate
 import pickle
 import os
-import bayessb
+import bayessb_new as bayessb
 from time import strftime
+import socket
 
 from earm.lopez_embedded import model
 
@@ -26,7 +27,12 @@ obs_totals = [model.parameters['Bid_0'].value,
               model.parameters['PARP_0'].value]
 
 # Load experimental data file
-earm_path = '/home/shockle/earm'
+if socket.gethostname() == 'Erins-MacBook-Pro.local':
+    earm_path = '/Users/Erin/git/earm'
+if socket.gethostname() == 'localhost':
+    # This is the puma host name
+    earm_path = '/home/shockle/earm'
+
 data_path = os.path.join(earm_path, 'xpdata', 'forfits',
                          'EC-RP_IMS-RP_IC-RP_data_for_models.csv')
 exp_data = np.genfromtxt(data_path, delimiter=',', names=True)
