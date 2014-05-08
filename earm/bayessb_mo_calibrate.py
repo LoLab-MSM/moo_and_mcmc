@@ -6,16 +6,43 @@ import os
 import bayessb_new as bayessb
 from time import strftime
 import socket
+from optparse import OptionParser
 
 from earm.lopez_embedded import model
 
+#Take input command line inputs for random seeds and output names (makes starting multiple chains on different CPUs easier).
+parser = OptionParser()
+parser.add_option('-r', '--random-seed', action='store', type='int', dest='randomseed')
+parser.add_option('-o', '--output-file', action='store', type='string', dest='output_file')
+parser.add_option('-l', '--length-walk', action='store', type='int', dest='walk_length')
+
+(options, args) = parser.parse_args()
+randomseed = options.randomseed
+if randomseed == None:
+    randomseed = 1
+output_file_prefix = options.output_file
+if output_file_prefix == None:
+    output_file_prefix = ''
+walk_length = options.walk_length
+if walk_length == None:
+    walk_length = 50000
+    
 #Load ODES and Jacobian from pickled values
-model.odes = pickle.load(open("earm_lopez_embedded_odes.p", "rb"))
-model.jacobian = pickle.load(open("earm_lopez_embedded_jacobian.p", "rb"))
-model.species = pickle.load(open("earm_lopez_embedded_species.p", "rb"))
-model.observables = pickle.load(open("earm_lopez_embedded_observables.p", "rb"))
-model.reactions = pickle.load(open("earm_lopez_embedded_reactions.p", "rb"))
-model.reactions_bidirectional = pickle.load(open("earm_lopez_embedded_reactions_bidirectional.p", "rb"))
+model.odes = pickle.load(open("pickled_inputs/earm_lopez_embedded_odes.p", "rb"))
+model.jacobian = pickle.load(open("pickled_inputs/earm_lopez_embedded_jacobian.p", "rb"))
+model.species = pickle.load(open("pickled_inputs/earm_lopez_embedded_species.p", "rb"))
+model.observables = pickle.load(open("pickled_inputs/earm_lopez_embedded_observables.p", "rb"))
+model.reactions = pickle.load(open("pickled_inputs/earm_lopez_embedded_reactions.p", "rb"))
+model.reactions_bidirectional = pickle.load(open("pickled_inputs/earm_lopez_embedded_reactions_bidirectional.p", "rb"))
+
+#Load in fitted parameter values
+parameter_file = 'fitted_parameters/earm_fitted_parameters_dictionary.p'
+with open(parameter_file, 'rb') as handle:
+    fittedparams = pickle.loads(handle.read())
+
+for i in range(len(model.parameters)):
+    if model.parameters[i].name in fittedparams:
+        model.parameters[i].value = fittedparams[model.parameters[i].name]
 
 # List of model observables and corresponding data file columns for
 # point-by-point fitting
@@ -133,17 +160,18 @@ def step(mcmc):
 opts = bayessb.MCMCOpts()
 opts.model = model
 opts.tspan = tspan
-opts.anneal_length = 10000
+opts.anneal_length = 0
 opts.likelihood_fn = likelihood
 opts.step_fn = step
-opts.nsteps = 10000
+opts.nsteps = walk_length
 opts.objectives = 2
-opts.seed = 1
+opts.seed = randomseed
 opts.integrator = 'lsoda'
 opts.atol=1e-7
 opts.rtol=1e-7
 opts.with_jacobian = True
 opts.intsteps = 5000
+opts.T_init = 1
 
 scenario = 1
 
@@ -187,7 +215,7 @@ for param, new_value in zip(opts.estimate_params, fitted_values):
     print '%-10s %-12.2g %-12.2g %-+6.2f' % values
     param_dict[param.name] = new_value
 
-with open('bayessb_so_fittedparamdict.p', 'wb') as handle:
+with open(output_file_prefix+'fittedparamdict.p', 'wb') as handle:
     pickle.dump(param_dict, handle)
 
 name = [p.name for p in opts.estimate_params]
@@ -197,9 +225,9 @@ oldvalues_array = np.array(oldvalues)
 newvalues_array = np.array(newvalues)
 change = np.log10(newvalues_array / oldvalues_array)
 combined = np.column_stack((name, oldvalues, newvalues, change))
-np.savetxt('bayessb_so_fittedparams.txt', combined, delimiter=' ', fmt='%s')
-np.savetxt('bayessb_so_alltestedpositions.txt', mcmc.positions)
-np.savetxt('bayessb_so_totalobj.txt', totalerror)
-np.savetxt('bayessb_so_sobj_error1.txt', error1)
-np.savetxt('bayessb_so_sobj_error2.txt', error2)
+np.savetxt(output_file_prefix+'fittedparams.txt', combined, delimiter=' ', fmt='%s')
+np.savetxt(output_file_prefix+'alltestedpositions.txt', mcmc.positions)
+np.savetxt(output_file_prefix+'totalobj.txt', totalerror)
+np.savetxt(output_file_prefix+'sobj_error1.txt', error1)
+np.savetxt(output_file_prefix+'sobj_error2.txt', error2)
 
