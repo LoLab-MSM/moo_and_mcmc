@@ -159,6 +159,12 @@ def step(mcmc):
         print 'iter=%-5d  sigma=%-.3f  T=%-.3f  acc=%-.3f, lkl=%s  prior=%g  post=%s' % \
             (mcmc.iter, mcmc.sig_value, mcmc.T, float(mcmc.acceptance)/(mcmc.iter+1),
              mcmc.accept_likelihood, mcmc.accept_prior, mcmc.accept_posterior)
+    if mcmc.iter % 500 == 0:
+        np.savetxt(str(iter)+output_file_prefix+'alltestedpositions.txt', mcmc.positions)
+        np.savetxt(str(iter)+output_file_prefix+'totalobj.txt', totalerror)
+        np.savetxt(str(iter)+output_file_prefix+'sobj_error1.txt', error1)
+        np.savetxt(str(iter)+output_file_prefix+'sobj_error2.txt', error2)
+        np.savetxt(str(iter)+output_file_prefix+'accepted_position_locations.txt', mcmc.accepts)
 
 #Set BayesSB parameters
 opts = bayessb.MCMCOpts()
