@@ -233,4 +233,5 @@ np.savetxt(output_file_prefix+'alltestedpositions.txt', mcmc.positions)
 np.savetxt(output_file_prefix+'totalobj.txt', totalerror)
 np.savetxt(output_file_prefix+'sobj_error1.txt', error1)
 np.savetxt(output_file_prefix+'sobj_error2.txt', error2)
+np.savetxt(output_file_prefix+'accepted_position_locations.txt', mcmc.accepts)
 
