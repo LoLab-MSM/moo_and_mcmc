@@ -151,7 +151,7 @@ def likelihood(mcmc, position):
 
 def prior(mcmc, position):
     """Distance to original parameter values"""
-    return numpy.sum((position - prior_mean) ** 2 / ( 2 * prior_var))
+    return np.sum((position - prior_mean) ** 2 / ( 2 * prior_var))
 
 def step(mcmc):
     """Print out some statistics every 20 steps"""
