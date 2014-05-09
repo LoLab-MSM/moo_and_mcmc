@@ -167,6 +167,7 @@ opts.tspan = tspan
 opts.anneal_length = 0
 opts.likelihood_fn = likelihood
 opts.step_fn = step
+opts.prior_fn = prior
 opts.nsteps = walk_length
 opts.objectives = 2
 opts.seed = randomseed
