@@ -147,6 +147,10 @@ def likelihood(mcmc, position):
     except AttributeError:
         return error
 
+def prior(mcmc, position):
+    """Distance to original parameter values"""
+    return numpy.sum((position - prior_mean) ** 2 / ( 2 * prior_var))
+
 def step(mcmc):
     """Print out some statistics every 20 steps"""
     if mcmc.iter % 1 == 0:
@@ -190,8 +194,8 @@ else:
 
 # values for prior calculation
 prior_mean = [np.log10(p.value) for p in opts.estimate_params]
-# prior_var is set to 6.0 so that (since calc is in log space) parameters can v$
-prior_var =  6.0
+# prior_var is set to 3.0
+prior_var =  3.0
 
 #Initialize arrays to hold calculated objective function values
 totalerror = np.zeros(opts.nsteps)
