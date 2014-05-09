@@ -74,7 +74,7 @@ momp_var = np.array([7245000.0, 3600.0, 1e4])
 # experimental data but with greater resolution to help the integrator converge.
 ntimes = len(exp_data['Time'])
 # Factor by which to increase time resolution
-tmul = 5
+tmul = 500
 # Do the sampling such that the original experimental timepoints can be
 # extracted with a slice expression instead of requiring interpolation.
 tspan = np.linspace(exp_data['Time'][0], exp_data['Time'][-1],
@@ -172,7 +172,6 @@ opts.integrator = 'lsoda'
 opts.atol=1e-7
 opts.rtol=1e-7
 opts.with_jacobian = True
-opts.first_step = 1e-12
 opts.intsteps = 5000
 opts.T_init = 1
 
