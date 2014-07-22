@@ -27,12 +27,12 @@ if walk_length == None:
     walk_length = 50000
 
 #Load ODES and Jacobian from pickled values
-model.odes = pickle.load(open("pickled_inputs/earm_lopez_embedded_odes.p", "rb"))
-model.jacobian = pickle.load(open("pickled_inputs/earm_lopez_embedded_jacobian.p", "rb"))
-model.species = pickle.load(open("pickled_inputs/earm_lopez_embedded_species.p", "rb"))
-model.observables = pickle.load(open("pickled_inputs/earm_lopez_embedded_observables.p", "rb"))
-model.reactions = pickle.load(open("pickled_inputs/earm_lopez_embedded_reactions.p", "rb"))
-model.reactions_bidirectional = pickle.load(open("pickled_inputs/earm_lopez_embedded_reactions_bidirectional.p", "rb"))
+#model.odes = pickle.load(open("pickled_inputs/earm_lopez_embedded_odes.p", "rb"))
+#model.jacobian = pickle.load(open("pickled_inputs/earm_lopez_embedded_jacobian.p", "rb"))
+#model.species = pickle.load(open("pickled_inputs/earm_lopez_embedded_species.p", "rb"))
+#model.observables = pickle.load(open("pickled_inputs/earm_lopez_embedded_observables.p", "rb"))
+#model.reactions = pickle.load(open("pickled_inputs/earm_lopez_embedded_reactions.p", "rb"))
+#model.reactions_bidirectional = pickle.load(open("pickled_inputs/earm_lopez_embedded_reactions_bidirectional.p", "rb"))
 
 #Load in fitted parameter values
 parameter_file = 'fitted_parameters/earm_fitted_parameters_dictionary.p'
@@ -157,7 +157,7 @@ def step(mcmc):
         print 'iter=%-5d  sigma=%-.3f  T=%-.3f  acc=%-.3f, lkl=%g  prior=%g  post=%g' % \
             (mcmc.iter, mcmc.sig_value, mcmc.T, float(mcmc.acceptance)/(mcmc.iter+1),
              mcmc.accept_likelihood, mcmc.accept_prior, mcmc.accept_posterior)
-    if mcmc.iter % 500 == 0:
+    if mcmc.iter % 1000 == 0:
         np.savetxt(str(iter)+output_file_prefix+'alltestedpositions.txt', mcmc.positions)
         np.savetxt(str(iter)+output_file_prefix+'totalobj.txt', totalerror)
         np.savetxt(str(iter)+output_file_prefix+'sobj_error1.txt', error1)

@@ -28,12 +28,12 @@ if walk_length == None:
     walk_length = 50000
     
 #Load ODES and Jacobian from pickled values
-model.odes = pickle.load(open("pickled_inputs/earm_lopez_embedded_odes.p", "rb"))
-model.jacobian = pickle.load(open("pickled_inputs/earm_lopez_embedded_jacobian.p", "rb"))
-model.species = pickle.load(open("pickled_inputs/earm_lopez_embedded_species.p", "rb"))
-model.observables = pickle.load(open("pickled_inputs/earm_lopez_embedded_observables.p", "rb"))
-model.reactions = pickle.load(open("pickled_inputs/earm_lopez_embedded_reactions.p", "rb"))
-model.reactions_bidirectional = pickle.load(open("pickled_inputs/earm_lopez_embedded_reactions_bidirectional.p", "rb"))
+#model.odes = pickle.load(open("pickled_inputs/earm_lopez_embedded_odes.p", "rb"))
+#model.jacobian = pickle.load(open("pickled_inputs/earm_lopez_embedded_jacobian.p", "rb"))
+#model.species = pickle.load(open("pickled_inputs/earm_lopez_embedded_species.p", "rb"))
+#model.observables = pickle.load(open("pickled_inputs/earm_lopez_embedded_observables.p", "rb"))
+#model.reactions = pickle.load(open("pickled_inputs/earm_lopez_embedded_reactions.p", "rb"))
+#model.reactions_bidirectional = pickle.load(open("pickled_inputs/earm_lopez_embedded_reactions_bidirectional.p", "rb"))
 
 #Load in fitted parameter values
 parameter_file = 'fitted_parameters/earm_fitted_parameters_dictionary.p'
@@ -54,12 +54,13 @@ obs_totals = [model.parameters['Bid_0'].value,
               model.parameters['PARP_0'].value]
 
 # Load experimental data file
-if socket.gethostname() == 'Erins-MacBook-Pro.local':
-    earm_path = '/Users/Erin/git/earm'
-if socket.gethostname() == 'localhost':
+#if socket.gethostname() == 'Erins-MacBook-Pro.local':
+#    earm_path = '/Users/Erin/git/earm'
+#if socket.gethostname() == 'localhost':
     # This is the puma host name
-    earm_path = '/home/shockle/earm'
+#    earm_path = '/home/shockle/earm'
 
+earm_path = '/Users/Erin/git/earm'
 data_path = os.path.join(earm_path, 'xpdata', 'forfits',
                          'EC-RP_IMS-RP_IC-RP_data_for_models.csv')
 exp_data = np.genfromtxt(data_path, delimiter=',', names=True)
