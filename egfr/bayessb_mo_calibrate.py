@@ -84,7 +84,7 @@ def step(mcmc):
             (mcmc.iter, mcmc.sig_value, mcmc.T, float(mcmc.acceptance)/(mcmc.iter+1),
              mcmc.accept_likelihood, mcmc.accept_prior, mcmc.accept_posterior)
     #Save current data to file every 500 steps
-    if mcmc.iter % 10 == 0:
+    if mcmc.iter % 500 == 0:
         print 'Saving data to file'
         np.savetxt(str(mcmc.iter)+'_'+output_file_prefix+'alltestedpositions.txt', mcmc.positions)
         np.savetxt(str(mcmc.iter)+'_'+output_file_prefix+'totalobj.txt', total_obj)

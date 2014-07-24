@@ -41,7 +41,7 @@ if walk_length == None:
 #        model.parameters[i].value = fittedparams[model.parameters[i].name]
 
 # Load experimental data file on ACCRE
-egfr_path = '/Users/Erin/git/egfr/egfr/experimental_data'
+egfr_path = '/home/shockle/egfr/egfr/experimental_data'
 data_path = os.path.join(egfr_path,'experimental_data_A431_highEGF_unnorm.npy')
 exp_data = np.load(data_path)
 data_path = os.path.join(egfr_path, 'experimental_data_var_A431_highEGF_unnorm.npy')
@@ -77,7 +77,7 @@ def prior(mcmc, position):
 
 def step(mcmc):
     """Print out some statistics every 20 steps"""
-    if mcmc.iter % 20 == 0:
+    if mcmc.iter % 1 == 0:
         print 'iter=%-5d  sigma=%-.3f  T=%-.3f  acc=%-.3f, lkl=%g  prior=%g  post=%g' % \
             (mcmc.iter, mcmc.sig_value, mcmc.T, float(mcmc.acceptance)/(mcmc.iter+1),
              mcmc.accept_likelihood, mcmc.accept_prior, mcmc.accept_posterior)
