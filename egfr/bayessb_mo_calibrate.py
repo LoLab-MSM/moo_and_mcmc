@@ -86,12 +86,12 @@ def step(mcmc):
     #Save current data to file every 500 steps
     if mcmc.iter % 500 == 0:
         print 'Saving data to file'
-        np.savetxt(str(mcmc.iter)+'_'+output_file_prefix+'alltestedpositions.txt', mcmc.positions)
-        np.savetxt(str(mcmc.iter)+'_'+output_file_prefix+'totalobj.txt', total_obj)
-        np.savetxt(str(mcmc.iter)+'_'+output_file_prefix+'sobj_erk.txt', objERK)
-        np.savetxt(str(mcmc.iter)+'_'+output_file_prefix+'sobj_akt.txt', objAKT)
-        np.savetxt(str(mcmc.iter)+'_'+output_file_prefix+'sobj_erb.txt', objErb)
-        np.savetxt(str(mcmc.iter)+'_'+output_file_prefix+'accepted_position_locations.txt', mcmc.accepts)
+        np.savetxt(output_file_prefix+'alltestedpositions.txt', mcmc.positions)
+        np.savetxt(output_file_prefix+'totalobj.txt', total_obj)
+        np.savetxt(output_file_prefix+'sobj_erk.txt', objERK)
+        np.savetxt(output_file_prefix+'sobj_akt.txt', objAKT)
+        np.savetxt(output_file_prefix+'sobj_erb.txt', objErb)
+        np.savetxt(output_file_prefix+'accepted_position_locations.txt', mcmc.accepts)
 
 #Set BayesSB parameters
 opts = bayessb.MCMCOpts()
