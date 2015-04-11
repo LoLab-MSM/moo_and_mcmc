@@ -11,7 +11,7 @@ import theano
 import pickle
 from pymc.backends import text
 
-from earm.lopez_embedded import model as earm
+from earm.lopez_direct import model as earm
 
 model = pm.Model()
 

@@ -11,7 +11,7 @@ import theano
 import pickle
 from pymc.backends import text
 
-from earm.lopez_embedded import model as earm
+from earm.lopez_indirect import model as earm
 
 model = pm.Model()
 
@@ -151,7 +151,7 @@ with model:
     
     trace = pm.sample(150000, step, njobs=3) #pass njobs=None to start multiple chains on different cpus
     
-    text.dump('2015_04_11_earm_embedded_mtdreamzs_normal_prior', trace)    
+    text.dump('2015_04_11_earm_indirect_mtdreamzs_normal_prior', trace)    
     
     dictionary_to_pickle = {}
 
@@ -159,7 +159,7 @@ with model:
         for var in dictionary:
            dictionary_to_pickle[var] = trace[var] 
     
-    pickle.dump(dictionary_to_pickle, open('2015_04_11_earm_embedded_mtdreamzs_normal_prior.p', 'wb'))
+    pickle.dump(dictionary_to_pickle, open('2015_04_11_earm_indirect_mtdreamzs_normal_prior.p', 'wb'))
     
         
 
