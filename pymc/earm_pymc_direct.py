@@ -49,7 +49,7 @@ tmul = 10
 tspan = np.linspace(exp_data['Time'][0], exp_data['Time'][-1],
                     (ntimes-1) * tmul + 1)
 # Initialize solver object
-solver = pysb.integrate.Solver(earm, tspan, rtol=1e-7, atol=1e-7, nsteps=5000)
+solver = pysb.integrate.Solver(earm, tspan, rtol=1e-7, atol=1e-7, nsteps=10000)
 
 cov = np.identity(len(earm.parameters_rules()))
 mu = np.array([np.log10(param.value) for param in earm.parameters_rules()])
@@ -78,9 +78,12 @@ def likelihood(param_vector):
         # Compute error between simulation and experiment (chi-squared)
         e1[obs_name] = np.sum((ydata - ysim_norm) ** 2 / (2 * yvar)) / len(ydata)    
     
-    e1_mBid = e1['mBid']  
+    e1_mBid = e1['mBid'] 
+    if np.isnan(e1_mBid):
+        e1_mBid = -np.inf
     e1_cPARP = e1['cPARP']
-    
+    if np.isnan(e1_cPARP):
+        e1_cPARP = -np.inf
     # Calculate Td, Ts, and final value for IMS-RP reporter
     # =====
     # Normalize trajectory
@@ -114,7 +117,8 @@ def likelihood(param_vector):
     
     # Perform chi-squared calculation against mean and variance vectors
     e2 = np.sum((momp_data - momp_sim) ** 2 / (2 * momp_var)) / 3
-    
+    if np.isnan(e2):
+        e2 = -np.inf
     #error = e1_mBid + e1_cPARP + e2
     
     return np.array(e1_mBid), np.array(e1_cPARP), np.array(e2) #to use gpu add .astype('float32') to end of first two arrays
@@ -151,7 +155,7 @@ with model:
     
     trace = pm.sample(150000, step, njobs=3) #pass njobs=None to start multiple chains on different cpus
     
-    text.dump('2015_04_11_earm_embedded_mtdreamzs_normal_prior', trace)    
+    text.dump('2015_04_11_earm_direct_mtdreamzs_normal_prior', trace)    
     
     dictionary_to_pickle = {}
 
@@ -159,7 +163,7 @@ with model:
         for var in dictionary:
            dictionary_to_pickle[var] = trace[var] 
     
-    pickle.dump(dictionary_to_pickle, open('2015_04_11_earm_embedded_mtdreamzs_normal_prior.p', 'wb'))
+    pickle.dump(dictionary_to_pickle, open('2015_04_11_earm_direct_mtdreamzs_normal_prior.p', 'wb'))
     
         
 
