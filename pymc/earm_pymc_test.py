@@ -10,10 +10,14 @@ from theano import shared
 import theano
 import pickle
 from pymc.backends import text
+from mpi4py import MPI
 
 from earm.lopez_embedded import model as earm
 
 model = pm.Model()
+
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
 
 # Info for loading/simulating EARM PySB model and experimental data
 # List of model observables and corresponding data file columns for
@@ -43,13 +47,13 @@ momp_var = np.array([7245000.0, 3600.0, 1e4])
 # experimental data but with greater resolution to help the integrator converge.
 ntimes = len(exp_data['Time'])
 # Factor by which to increase time resolution
-tmul = 10
+tmul = 100
 # Do the sampling such that the original experimental timepoints can be
 # extracted with a slice expression instead of requiring interpolation.
 tspan = np.linspace(exp_data['Time'][0], exp_data['Time'][-1],
                     (ntimes-1) * tmul + 1)
 # Initialize solver object
-solver = pysb.integrate.Solver(earm, tspan, rtol=1e-7, atol=1e-7, nsteps=10000)
+solver = pysb.integrate.Solver(earm, tspan, integrator='vode', rtol=1e-7, atol=1e-7, nsteps=10000)
 
 cov = np.identity(len(earm.parameters_rules()))
 mu = np.array([np.log10(param.value) for param in earm.parameters_rules()])
@@ -78,10 +82,12 @@ def likelihood(param_vector):
         # Compute error between simulation and experiment (chi-squared)
         e1[obs_name] = np.sum((ydata - ysim_norm) ** 2 / (2 * yvar)) / len(ydata)    
     
-    e1_mBid = e1['mBid']  
+    e1_mBid = e1['mBid'] 
+    e1_mBid = -np.log(e1_mBid)
     if np.isnan(e1_mBid):
         e1_mBid = -np.inf
     e1_cPARP = e1['cPARP']
+    e1_cPARP = -np.log(e1_cPARP)
     if np.isnan(e1_cPARP):
         e1_cPARP = -np.inf
     # Calculate Td, Ts, and final value for IMS-RP reporter
@@ -117,6 +123,7 @@ def likelihood(param_vector):
     
     # Perform chi-squared calculation against mean and variance vectors
     e2 = np.sum((momp_data - momp_sim) ** 2 / (2 * momp_var)) / 3
+    e2 = -np.log(e2)
     if np.isnan(e2):
         e2 = -np.inf
     #error = e1_mBid + e1_cPARP + e2
@@ -144,6 +151,10 @@ with model:
     icrp_like = pm.ArbLikelihood('icrp_output', icrp)
     ecrp_like = pm.ArbLikelihood('ecrp_output', ecrp)    
     momp_like = pm.ArbLikelihood('momp_output', momp)
+    
+    icrp = pm.Deterministic('icrp', icrp)
+    ecrp = pm.Deterministic('ecrp', ecrp)
+    momp = pm.Deterministic('momp', momp)
     #error_like = pm.ArbLikelihood('like', error)    
     
     #Select point in parameter space to start
@@ -151,19 +162,49 @@ with model:
     
     #Select stepping method
     nseedchains = 10*len(earm.parameters_rules())
-    step = pm.Dream(variables=[model.params], nseedchains=nseedchains, blocked=True, multitry=5, save_history=True)
+    step = pm.Dream(variables=[model.params], nseedchains=nseedchains, blocked=True, multitry=5, start_random=False, save_history=True, parallel=True, adapt_crossover=False, history_file='2015_04_20_earm_embedded_mtdreamzs_normal_prior_history.npy', crossover_file='2015_04_18_earm_embedded_mtdreamzs_normal_prior_crossovervals.npy')
+
+    old_trace = text.load('2015_04_20_earm_embedded_mtdreamzs_normal_prior')
+    trace = pm.sample(15000, step, njobs=3, trace=old_trace) #pass njobs=None to start multiple chains on different cpus
     
-    trace = pm.sample(150000, step, njobs=3) #pass njobs=None to start multiple chains on different cpus
-    
-    text.dump('2015_04_11_earm_embedded_mtdreamzs_normal_prior', trace)    
+    text.dump('2015_04_21_earm_embedded_mtdreamzs_normal_prior', trace)    
     
     dictionary_to_pickle = {}
 
     for dictionary in trace:
         for var in dictionary:
-           dictionary_to_pickle[var] = trace[var] 
+            dictionary_to_pickle[var] = trace[var] 
     
-    pickle.dump(dictionary_to_pickle, open('2015_04_11_earm_embedded_mtdreamzs_normal_prior.p', 'wb'))
+    pickle.dump(dictionary_to_pickle, open('2015_04_21_earm_embedded_mtdreamzs_normal_prior.p', 'wb'))
+    
+    from my_diagnostics import convert_param_vec_dict_to_param_dict
+    from my_diagnostics import gelman_rubin_trace_dict
+    
+    trace_just_params = dictionary_to_pickle
+    del trace_just_params['icrp_output']
+    del trace_just_params['ecrp_output']
+    del trace_just_params['momp_output']
+    del trace_just_params['icrp']
+    del trace_just_params['ecrp']
+    del trace_just_params['momp']
+    param_vec_dict = convert_param_vec_dict_to_param_dict(trace_just_params, earm.parameters_rules())
+    gr_results = gelman_rubin_trace_dict(param_vec_dict)
+    params1_2 = 0
+    params1_1 = 0
+    for param in gr_results.keys():
+        if gr_results[param] < 1.2:
+            params1_2 += 1
+        if gr_results[param] < 1.1:
+            params1_1 += 1
+    
+    perc_12 = (float(params1_2)/len(earm.parameters_rules()))*100
+    perc_11 = (float(params1_1)/len(earm.parameters_rules()))*100
+    
+    print 'Number of params with GR below 1.2: ',params1_2
+    print 'Percent of params with GR below 1.2: ',perc_12
+    print 'Number of params with GR below 1.1: ',params1_1
+    print 'Percent of params with GR below 1.1: ',perc_11
+    
     
         
 
