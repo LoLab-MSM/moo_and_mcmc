@@ -10,6 +10,7 @@ from theano import shared
 import theano
 import pickle
 from pymc.backends import text
+from mpi4py import MPI
 
 from earm.lopez_indirect import model as earm
 
@@ -79,9 +80,11 @@ def likelihood(param_vector):
         e1[obs_name] = np.sum((ydata - ysim_norm) ** 2 / (2 * yvar)) / len(ydata)    
     
     e1_mBid = e1['mBid'] 
+    e1_mBid = -np.log(e1_mBid)
     if np.isnan(e1_mBid):
         e1_mBid = -np.inf
     e1_cPARP = e1['cPARP']
+    e1_cPARP = -np.log(e1_cPARP)
     if np.isnan(e1_cPARP):
         e1_cPARP = -np.inf
     
@@ -118,6 +121,7 @@ def likelihood(param_vector):
     
     # Perform chi-squared calculation against mean and variance vectors
     e2 = np.sum((momp_data - momp_sim) ** 2 / (2 * momp_var)) / 3
+    e2 = -np.log(e2)
     if np.isnan(e2):
         e2 = -np.inf
     #error = e1_mBid + e1_cPARP + e2
@@ -149,14 +153,19 @@ with model:
     momp_like = pm.ArbLikelihood('momp_output', momp)
     #error_like = pm.ArbLikelihood('like', error)    
     
+    icrp = pm.Deterministic('icrp', icrp)
+    ecrp = pm.Deterministic('ecrp', ecrp)
+    momp = pm.Deterministic('momp', momp)    
+    
     #Select point in parameter space to start
     #start = pm.find_MAP()
     
     #Select stepping method
     nseedchains = 10*len(earm.parameters_rules())
-    step = pm.Dream(variables=[model.params], nseedchains=nseedchains, blocked=True, multitry=5, save_history=True)
+    step = pm.Dream(variables=[model.params], nseedchains=nseedchains, blocked=True, multitry=5, start_random=False, save_history=True, parallel=False, adapt_crossover=False)
     
-    trace = pm.sample(150000, step, njobs=3) #pass njobs=None to start multiple chains on different cpus
+    #old_trace = text.load('2015_04_28_earm_embedded_mtdreamzs_normal_prior')
+    trace = pm.sample(150000, step, njobs=3, use_mpi=False) #pass njobs=None to start multiple chains on different cpus
     
     text.dump('2015_04_11_earm_indirect_mtdreamzs_normal_prior', trace)    
     
@@ -168,5 +177,23 @@ with model:
     
     pickle.dump(dictionary_to_pickle, open('2015_04_11_earm_indirect_mtdreamzs_normal_prior.p', 'wb'))
     
-        
+    from helper_fxns import convert_param_vec_dict_to_param_dict
+    from helper_fxns import merge_traces
+    from helper_fxns import print_convergence_summary
+    
+    #old_traces = pickle.load(open('2015_04_28_earm_embedded_mtdreamzs_normal_prior_merged_traces_50000.p'))
+    #trace_list = [old_traces, dictionary_to_pickle]
+    #merged_traces = merge_traces(trace_list)
+    
+    #pickle.dump(merged_traces, open('2015_04_29_earm_direct_mtdreamzs_normal_prior_merged_traces_65000.p', 'wb'))
+    
+    trace_just_params = dictionary_to_pickle
+    del trace_just_params['icrp_output']
+    del trace_just_params['ecrp_output']
+    del trace_just_params['momp_output']
+    del trace_just_params['icrp']
+    del trace_just_params['ecrp']
+    del trace_just_params['momp']
+    param_vec_dict = convert_param_vec_dict_to_param_dict(trace_just_params, earm.parameters_rules())
+    print_convergence_summary(param_vec_dict)    
 
