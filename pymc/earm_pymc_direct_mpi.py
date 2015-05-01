@@ -13,11 +13,34 @@ import dill
 from pymc.backends import text
 from mpi4py import MPI
 from helper_fxns import load_model_files
-import time
+import scipy.weave.inline_tools
+import scipy.weave.catalog
+import uuid
+import shutil
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
+
+u = None
+if rank == 0:
+    u = str(uuid.uuid4())
+    for rankn in range(1,size):
+        comm.send(u, dest=rankn, tag=1)
+
+else:
+    u = comm.recv(source=0, tag=1)
+
+basetmp = '/tmp/shockle'
+catalog_dir = os.path.join(basetmp, 'pythoncompiled',  u+'-'+str(rank))
+intermediate_dir = os.path.join(basetmp, 'pythonintermediate',  u+'-'+str(rank))
+
+os.makedirs(catalog_dir, mode=0o700)
+os.makedirs(intermediate_dir, mode=0o700)
+
+#monkeypatching the catalog and intermediate_dir
+scipy.weave.inline_tools.function_catalog = scipy.weave.catalog.catalog(catalog_dir)
+scipy.weave.catalog.intermediate_dir = lambda: intermediate_dir
 
 earm = load_model_files('earm_direct', 'pickled_model_files/earm_direct')
 
@@ -204,7 +227,9 @@ with model:
     del trace_just_params['momp']
     param_vec_dict = convert_param_vec_dict_to_param_dict(trace_just_params, earm.parameters_rules())
     print_convergence_summary(param_vec_dict)
-    
+
+shutil.rmtree(catalog_dir)
+shutil.rmtree(intermediate_dir)  
     
     
     
