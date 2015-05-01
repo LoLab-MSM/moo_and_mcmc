@@ -34,13 +34,18 @@ else:
 basetmp = '/tmp/shockle'
 catalog_dir = os.path.join(basetmp, 'pythoncompiled',  u+'-'+str(rank))
 intermediate_dir = os.path.join(basetmp, 'pythonintermediate',  u+'-'+str(rank))
+theano_dir = os.path.join(basetmp, 'theanocompiled', u+'-'+str(rank))
 
 os.makedirs(catalog_dir, mode=0o700)
 os.makedirs(intermediate_dir, mode=0o700)
+os.makedirs(theano_dir, mode=0o700)
 
 #monkeypatching the catalog and intermediate_dir
 scipy.weave.inline_tools.function_catalog = scipy.weave.catalog.catalog(catalog_dir)
 scipy.weave.catalog.intermediate_dir = lambda: intermediate_dir
+
+#Setting Theano's config directory
+theano.config.compiledir = theano_dir
 
 earm = load_model_files('earm_direct', 'pickled_model_files/earm_direct')
 
