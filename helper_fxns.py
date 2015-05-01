@@ -13,6 +13,7 @@ import math
 import pickle
 from pysb.bng import generate_equations
 import os
+import dill
 
 def gelman_rubin_trace_dict(trace_dict):
     Rhat = {}
@@ -245,40 +246,16 @@ def create_model_files(model, model_name, directory=None):
         os.chdir(directory)
     
     file_basename = model_name+'_model'
-    pickle.dump(model.species, open(file_basename+'_species.p', 'w'))
-    pickle.dump(model.odes, open(file_basename+'_odes.p', 'w'))
-    pickle.dump(model.reactions, open(file_basename+'_reactions.p', 'w'))
-    pickle.dump(model.reactions_bidirectional, open(file_basename+'_reactions_bidirectional.p', 'w'))
-    pickle.dump(model.initial_conditions, open(file_basename+'_initial_conditions.p', 'wb'))
-    pickle.dump(model.parameters, open(file_basename+'_parameters.p', 'wb'))
-    
-    if model.observables:
-        obs_species_dict = {}
-        obs_coefficients_dict = {}
-        for obs in model.observables:
-            obs_species_dict[obs] = obs.species
-            obs_coefficients_dict[obs] = obs.coefficients
-        pickle.dump(obs_species_dict, open(file_basename+'_observables_species_dict.p', 'w'))
-        pickle.dump(obs_coefficients_dict, open(file_basename+'_observables_coefficients_dict.p', 'w'))
+    dill.dump(model, open(file_basename+'.p', 'wb'))
 
-def load_model_files(model, model_name, directory=None):
+def load_model_files(model_name, directory=None):
     if directory != None:
         os.chdir(directory)
     
     file_basename = model_name+'_model'
-    model.species = pickle.load(open(file_basename+'_species.p'))
-    model.odes = pickle.load(open(file_basename+'_odes.p'))
-    model.reactions = pickle.load(open(file_basename+'_reactions.p'))
-    model.reactions_bidirectional = pickle.load(open(file_basename+'_reactions_bidirectional.p'))
-    model.initial_conditions = pickle.load(open(file_basename+'_initial_conditions.p'))
-    model.parameters = pickle.load(open(file_basename+'_parameters.p'))    
+    model = dill.load(open(file_basename+'.p'))
     
-    if model.observables:
-        obs_species_dict = pickle.load(open(file_basename+'_observables_species_dict.p'))
-        obs_coefficients_dict = pickle.load(open(file_basename+'_observables_coefficients_dict.p'))
-        for obs in model.observables:
-            obs.species = obs_species_dict[obs]
-            obs.coefficients = obs_coefficients_dict[obs]
+    return model
             
 def check_gr_over_time(model, trace_dict, interval=1000, params_to_remove=None):
     if params_to_remove != None:
