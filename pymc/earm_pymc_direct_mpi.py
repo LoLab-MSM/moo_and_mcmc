@@ -33,7 +33,7 @@ obs_totals = [earm.parameters['Bid_0'].value,
               earm.parameters['PARP_0'].value]
 
 # Load experimental data file
-earm_path = '/Users/Erin/git/earm'
+earm_path = '/home/shockle/earm'
 data_path = os.path.join(earm_path, 'xpdata', 'forfits',
                          'EC-RP_IMS-RP_IC-RP_data_for_models.csv')
 exp_data = np.genfromtxt(data_path, delimiter=',', names=True)
@@ -162,13 +162,13 @@ with model:
     
     #Select stepping method
     nseedchains = 10*len(earm.parameters_rules())
-    step = pm.Dream(variables=[model.params], nseedchains=nseedchains, blocked=True, multitry=5, start_random=False, save_history=True, parallel=True, adapt_crossover=False, history_file='2015_04_29_earm_direct_mtdreamzs_normal_prior_history.npy', crossover_file='2015_04_18_earm_direct_mtdreamzs_normal_prior_crossovervals.npy')
+    step = pm.Dream_mpi(variables=[model.params], nseedchains=nseedchains, blocked=True, multitry=5, start_random=False, save_history=True, parallel=True, adapt_crossover=False)
     
-    old_trace = text.load('2015_04_29_earm_direct_mtdreamzs_normal_prior')
-    trace = pm.sample(15000, step, njobs=3, trace=old_trace, use_mpi=True) #pass njobs=None to start multiple chains on different cpus
+    #old_trace = text.load('2015_04_29_earm_direct_mtdreamzs_normal_prior')
+    trace = pm.sample(15000, step, njobs=3, use_mpi=True) #pass njobs=None to start multiple chains on different cpus
     
-    text.dump('2015_04_30_earm_direct_mtdreamzs_normal_prior', trace)    
-    #text.dump('test', trace)       
+    #text.dump('2015_04_30_earm_direct_mtdreamzs_normal_prior', trace)    
+    text.dump('test', trace)       
     
     dictionary_to_pickle = {}
 
@@ -176,31 +176,25 @@ with model:
         for var in dictionary:
             dictionary_to_pickle[var] = trace[var] 
     
-    pickle.dump(dictionary_to_pickle, open('2015_04_30_earm_direct_mtdreamzs_normal_prior.p', 'wb'))
-    #pickle.dump(dictionary_to_pickle, open('test.p', 'wb'))
+    #pickle.dump(dictionary_to_pickle, open('2015_04_30_earm_direct_mtdreamzs_normal_prior.p', 'wb'))
+    pickle.dump(dictionary_to_pickle, open('test.p', 'wb'))
     
     from helper_fxns import convert_param_vec_dict_to_param_dict
     from helper_fxns import merge_traces
     from helper_fxns import print_convergence_summary
     
-    old_traces = pickle.load(open('2015_04_29_earm_direct_mtdreamzs_normal_prior_merged_traces_80000.p'))
-    trace_list = [old_traces, dictionary_to_pickle]
-    merged_traces = merge_traces(trace_list)
+    #old_traces = pickle.load(open('2015_04_29_earm_direct_mtdreamzs_normal_prior_merged_traces_80000.p'))
+    #trace_list = [old_traces, dictionary_to_pickle]
+    #merged_traces = merge_traces(trace_list)
     
-    pickle.dump(merged_traces, open('2015_04_30_earm_direct_mtdreamzs_normal_prior_merged_traces_95000.p', 'wb'))
+    #pickle.dump(merged_traces, open('2015_04_30_earm_direct_mtdreamzs_normal_prior_merged_traces_95000.p', 'wb'))
     
-    trace_just_params = merged_traces
-    del trace_just_params['icrp_output']
-    del trace_just_params['ecrp_output']
-    del trace_just_params['momp_output']
-    del trace_just_params['icrp']
-    del trace_just_params['ecrp']
-    del trace_just_params['momp']
-    param_vec_dict = convert_param_vec_dict_to_param_dict(trace_just_params, earm.parameters_rules())
-    print_convergence_summary(param_vec_dict)
-    
-    
-    
-    
-        
-
+    #trace_just_params = merged_traces
+    #del trace_just_params['icrp_output']
+    #del trace_just_params['ecrp_output']
+    #del trace_just_params['momp_output']
+    #del trace_just_params['icrp']
+    #del trace_just_params['ecrp']
+    #del trace_just_params['momp']
+    #param_vec_dict = convert_param_vec_dict_to_param_dict(trace_just_params, earm.parameters_rules())
+    #print_convergence_summary(param_vec_dict)
