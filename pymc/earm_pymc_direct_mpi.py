@@ -196,37 +196,38 @@ with model:
     old_trace = text.load('2015_04_29_earm_direct_mtdreamzs_normal_prior')
     trace = pm.sample(15000, step, njobs=3, trace=old_trace, use_mpi=True) #pass njobs=None to start multiple chains on different cpus
     
-    text.dump('2015_04_30_earm_direct_mtdreamzs_normal_prior', trace)    
-    #text.dump('test', trace)       
+    if rank == 0:
+        text.dump('2015_04_30_earm_direct_mtdreamzs_normal_prior', trace)    
+        #text.dump('test', trace)       
     
-    dictionary_to_pickle = {}
+        dictionary_to_pickle = {}
 
-    for dictionary in trace:
-        for var in dictionary:
-            dictionary_to_pickle[var] = trace[var] 
+        for dictionary in trace:
+            for var in dictionary:
+                dictionary_to_pickle[var] = trace[var] 
     
-    pickle.dump(dictionary_to_pickle, open('2015_04_30_earm_direct_mtdreamzs_normal_prior.p', 'wb'))
-    #pickle.dump(dictionary_to_pickle, open('test.p', 'wb'))
+        pickle.dump(dictionary_to_pickle, open('2015_04_30_earm_direct_mtdreamzs_normal_prior.p', 'wb'))
+        #pickle.dump(dictionary_to_pickle, open('test.p', 'wb'))
     
-    from helper_fxns import convert_param_vec_dict_to_param_dict
-    from helper_fxns import merge_traces
-    from helper_fxns import print_convergence_summary
+        from helper_fxns import convert_param_vec_dict_to_param_dict
+        from helper_fxns import merge_traces
+        from helper_fxns import print_convergence_summary
     
-    old_traces = pickle.load(open('2015_04_29_earm_direct_mtdreamzs_normal_prior_merged_traces_80000.p'))
-    trace_list = [old_traces, dictionary_to_pickle]
-    merged_traces = merge_traces(trace_list)
+        old_traces = pickle.load(open('2015_04_29_earm_direct_mtdreamzs_normal_prior_merged_traces_80000.p'))
+        trace_list = [old_traces, dictionary_to_pickle]
+        merged_traces = merge_traces(trace_list)
     
-    pickle.dump(merged_traces, open('2015_04_30_earm_direct_mtdreamzs_normal_prior_merged_traces_95000.p', 'wb'))
+        pickle.dump(merged_traces, open('2015_04_30_earm_direct_mtdreamzs_normal_prior_merged_traces_95000.p', 'wb'))
     
-    trace_just_params = merged_traces
-    del trace_just_params['icrp_output']
-    del trace_just_params['ecrp_output']
-    del trace_just_params['momp_output']
-    del trace_just_params['icrp']
-    del trace_just_params['ecrp']
-    del trace_just_params['momp']
-    param_vec_dict = convert_param_vec_dict_to_param_dict(trace_just_params, earm.parameters_rules())
-    print_convergence_summary(param_vec_dict)
+        trace_just_params = merged_traces
+        del trace_just_params['icrp_output']
+        del trace_just_params['ecrp_output']
+        del trace_just_params['momp_output']
+        del trace_just_params['icrp']
+        del trace_just_params['ecrp']
+        del trace_just_params['momp']
+        param_vec_dict = convert_param_vec_dict_to_param_dict(trace_just_params, earm.parameters_rules())
+        print_convergence_summary(param_vec_dict)
 
 shutil.rmtree(catalog_dir)
 shutil.rmtree(intermediate_dir)  
