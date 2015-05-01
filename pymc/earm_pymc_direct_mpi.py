@@ -9,6 +9,7 @@ from theano import function
 from theano import shared
 import theano
 import pickle
+import dill
 from pymc.backends import text
 from mpi4py import MPI
 from helper_fxns import load_model_files
@@ -56,9 +57,12 @@ tmul = 100
 tspan = np.linspace(exp_data['Time'][0], exp_data['Time'][-1],
                     (ntimes-1) * tmul + 1)
 # Initialize solver object
-                  
-for rank in range(size):
+
+if rank == 0:
     solver = pysb.integrate.Solver(earm, tspan, integrator='vode', rtol=1e-7, atol=1e-7, nsteps=10000)
+    dill.dump(solver, open('solver_obj.p', 'wb'))             
+else:
+    solver = dill.load(open('solver_obj.p'))
 
 @theano.compile.ops.as_op(itypes=[t.dvector],otypes=[t.dscalar, t.dscalar, t.dscalar]) #to use gpu use type t.fvector for all inputs/outputs
 def likelihood(param_vector):
@@ -162,6 +166,7 @@ with model:
     
     #Select stepping method
     nseedchains = 10*len(earm.parameters_rules())
+
     step = pm.Dream_mpi(variables=[model.params], nseedchains=nseedchains, blocked=True, multitry=5, start_random=False, save_history=True, parallel=True, adapt_crossover=False)
     
     #old_trace = text.load('2015_04_29_earm_direct_mtdreamzs_normal_prior')
