@@ -13,6 +13,7 @@ import dill
 from pymc.backends import text
 from mpi4py import MPI
 from helper_fxns import load_model_files
+import time
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -60,8 +61,9 @@ tspan = np.linspace(exp_data['Time'][0], exp_data['Time'][-1],
 
 if rank == 0:
     solver = pysb.integrate.Solver(earm, tspan, integrator='vode', rtol=1e-7, atol=1e-7, nsteps=10000)
-    dill.dump(solver, open('solver_obj.p', 'wb'))             
+    dill.dump(solver, open('solver_obj.p', 'wb'))         
 else:
+    time.sleep(30)
     solver = dill.load(open('solver_obj.p'))
 
 @theano.compile.ops.as_op(itypes=[t.dvector],otypes=[t.dscalar, t.dscalar, t.dscalar]) #to use gpu use type t.fvector for all inputs/outputs
