@@ -13,11 +13,34 @@ import dill
 from pymc.backends import text
 from mpi4py import MPI
 from helper_fxns import load_model_files
-import time
+import scipy.weave.inline_tools
+import scipy.weave.catalog
+import uuid
+import shutil
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
+
+u = None
+if rank == 0:
+    u = str(uuid.uuid4())
+    for rankn in range(1,size):
+        comm.send(u, dest=rankn, tag=1)
+
+else:
+    u = comm.recv(source=0, tag=1)
+
+basetmp = '/tmp/shockle'
+catalog_dir = os.path.join(basetmp, 'pythoncompiled',  u+'-'+str(rank))
+intermediate_dir = os.path.join(basetmp, 'pythonintermediate',  u+'-'+str(rank))
+
+os.makedirs(catalog_dir, mode=0o700)
+os.makedirs(intermediate_dir, mode=0o700)
+
+#monkeypatching the catalog and intermediate_dir
+scipy.weave.inline_tools.function_catalog = scipy.weave.catalog.catalog(catalog_dir)
+scipy.weave.catalog.intermediate_dir = lambda: intermediate_dir
 
 earm = load_model_files('earm_direct', 'pickled_model_files/earm_direct')
 
@@ -58,13 +81,7 @@ tmul = 100
 tspan = np.linspace(exp_data['Time'][0], exp_data['Time'][-1],
                     (ntimes-1) * tmul + 1)
 # Initialize solver object
-
-if rank == 0:
-    solver = pysb.integrate.Solver(earm, tspan, integrator='vode', rtol=1e-7, atol=1e-7, nsteps=10000)
-    dill.dump(solver, open('solver_obj.p', 'wb'))         
-else:
-    time.sleep(30)
-    solver = dill.load(open('solver_obj.p'))
+solver = pysb.integrate.Solver(earm, tspan, integrator='vode', rtol=1e-7, atol=1e-7, nsteps=10000)
 
 @theano.compile.ops.as_op(itypes=[t.dvector],otypes=[t.dscalar, t.dscalar, t.dscalar]) #to use gpu use type t.fvector for all inputs/outputs
 def likelihood(param_vector):
@@ -172,7 +189,7 @@ with model:
     step = pm.Dream_mpi(variables=[model.params], nseedchains=nseedchains, blocked=True, multitry=5, start_random=False, save_history=True, parallel=True, adapt_crossover=False)
     
     #old_trace = text.load('2015_04_29_earm_direct_mtdreamzs_normal_prior')
-    trace = pm.sample(15000, step, njobs=3, use_mpi=True) #pass njobs=None to start multiple chains on different cpus
+    trace = pm.sample(150, step, njobs=3, use_mpi=True) #pass njobs=None to start multiple chains on different cpus
     
     #text.dump('2015_04_30_earm_direct_mtdreamzs_normal_prior', trace)    
     text.dump('test', trace)       
@@ -189,7 +206,7 @@ with model:
     from helper_fxns import convert_param_vec_dict_to_param_dict
     from helper_fxns import merge_traces
     from helper_fxns import print_convergence_summary
-    
+
     #old_traces = pickle.load(open('2015_04_29_earm_direct_mtdreamzs_normal_prior_merged_traces_80000.p'))
     #trace_list = [old_traces, dictionary_to_pickle]
     #merged_traces = merge_traces(trace_list)
@@ -205,3 +222,7 @@ with model:
     #del trace_just_params['momp']
     #param_vec_dict = convert_param_vec_dict_to_param_dict(trace_just_params, earm.parameters_rules())
     #print_convergence_summary(param_vec_dict)
+
+shutil.rmtree(catalog_dir)
+shutil.rmtree(intermediate_dir)  
+
