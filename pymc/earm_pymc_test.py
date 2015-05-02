@@ -162,12 +162,12 @@ with model:
     
     #Select stepping method
     nseedchains = 10*len(earm.parameters_rules())
-    step = pm.Dream(variables=[model.params], nseedchains=nseedchains, blocked=True, multitry=5, start_random=False, save_history=True, parallel=False, adapt_crossover=False, history_file='2015_04_28_earm_embedded_mtdreamzs_normal_prior_history.npy', crossover_file='2015_04_18_earm_embedded_mtdreamzs_normal_prior_crossovervals.npy')
+    step = pm.Dream(variables=[model.params], nseedchains=nseedchains, blocked=True, multitry=5, start_random=False, save_history=True, parallel=False, adapt_crossover=False, history_file='2015_04_30_earm_embedded_mtdreamzs_normal_prior_history.npy', crossover_file='2015_04_18_earm_embedded_mtdreamzs_normal_prior_crossovervals.npy')
 
-    old_trace = text.load('2015_04_28_earm_embedded_mtdreamzs_normal_prior')
+    old_trace = text.load('2015_04_30_earm_embedded_mtdreamzs_normal_prior')
     trace = pm.sample(15000, step, njobs=3, trace=old_trace, use_mpi=False) #pass njobs=None to start multiple chains on different cpus
     
-    text.dump('2015_04_29_earm_embedded_mtdreamzs_normal_prior', trace)    
+    text.dump('2015_05_01_earm_embedded_mtdreamzs_normal_prior', trace)    
     
     dictionary_to_pickle = {}
 
@@ -175,17 +175,17 @@ with model:
         for var in dictionary:
             dictionary_to_pickle[var] = trace[var] 
     
-    pickle.dump(dictionary_to_pickle, open('2015_04_29_earm_embedded_mtdreamzs_normal_prior.p', 'wb'))
+    pickle.dump(dictionary_to_pickle, open('2015_05_01_earm_embedded_mtdreamzs_normal_prior.p', 'wb'))
     
     from helper_fxns import convert_param_vec_dict_to_param_dict
     from helper_fxns import merge_traces
     from helper_fxns import print_convergence_summary
     
-    old_traces = pickle.load(open('2015_04_28_earm_embedded_mtdreamzs_normal_prior_merged_traces_50000.p'))
+    old_traces = pickle.load(open('2015_04_30_earm_embedded_mtdreamzs_normal_prior_merged_traces_80000.p'))
     trace_list = [old_traces, dictionary_to_pickle]
     merged_traces = merge_traces(trace_list)
     
-    pickle.dump(merged_traces, open('2015_04_29_earm_direct_mtdreamzs_normal_prior_merged_traces_65000.p', 'wb'))
+    pickle.dump(merged_traces, open('2015_05_01_earm_embedded_mtdreamzs_normal_prior_merged_traces_95000.p', 'wb'))
     
     trace_just_params = merged_traces
     del trace_just_params['icrp_output']
