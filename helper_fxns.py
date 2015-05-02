@@ -239,6 +239,7 @@ def plot_tsne_data(unique_tsne_output, original_trace_arr, histogram=True, hexbi
     return fig
 
 def create_model_files(model, model_name, directory=None):
+    curr_dir = os.getcwd()
     if not model.odes:
         generate_equations(model)
     
@@ -247,13 +248,18 @@ def create_model_files(model, model_name, directory=None):
     
     file_basename = model_name+'_model'
     dill.dump(model, open(file_basename+'.p', 'wb'))
+    
+    os.chdir(curr_dir)
 
 def load_model_files(model_name, directory=None):
+    curr_dir = os.getcwd()
     if directory != None:
         os.chdir(directory)
     
     file_basename = model_name+'_model'
     model = dill.load(open(file_basename+'.p'))
+    
+    os.chdir(curr_dir)
     
     return model
             
