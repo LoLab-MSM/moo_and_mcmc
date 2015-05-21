@@ -5,7 +5,7 @@ Created on Thu May 21 15:14:40 2015
 @author: Erin
 """
 
-import bayessb
+import bayessb_new as bayessb
 from optparse import OptionParser
 import numpy as np
 from time import strftime
@@ -40,6 +40,20 @@ cov = 10*np.identity(2)
 m = np.random.multivariate_normal(mean=mu, cov=cov, size=20)
 np.save('ndim_banana_seed.npy', m)
 
+class Parameter(value):
+    'Simple non-PySB parameters to pass to BayesSB.'
+    def __init__(self, value):
+        self.value = value
+
+class Model:
+    'Simple non-PySB model to pass to BayesSB.'
+    
+    def parameters(self):
+        x = Parameter(m[0][0])
+        y = Parameter(m[0][1])
+        
+        return [x, y]
+
 def likelihood(mcmc, params):
     new_param2 = params[1] + b * params[0]**2 - 100*b
     new_params = np.array([params[0], new_param2])
@@ -64,6 +78,7 @@ def step(mcmc):
 
 #Set BayesSB parameters
 opts = bayessb.MCMCOpts()
+opts.model = Model()
 opts.anneal_length = 0
 opts.likelihood_fn = likelihood
 opts.step_fn = step
