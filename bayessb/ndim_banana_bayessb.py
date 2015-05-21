@@ -47,12 +47,9 @@ class Parameter():
 
 class Model:
     'Simple non-PySB model to pass to BayesSB.'
-    
-    def parameters(self):
-        x = Parameter(m[0][0])
-        y = Parameter(m[0][1])
-        
-        return [x, y]
+    def __init__(self, x, y):
+	self.parameters = [Parameter(10**x), Parameter(10**y)]    
+	print 'Set x to: ',x,' Set y to: ',y
 
 def likelihood(mcmc, params):
     new_param2 = params[1] + b * params[0]**2 - 100*b
@@ -63,7 +60,7 @@ def likelihood(mcmc, params):
         totalerror[mcmc.iter] = log_L
     except AttributeError:
         pass
-    return log_L  
+    return -log_L  
 
 def step(mcmc):
     """Print out some statistics every 20 steps"""
@@ -72,19 +69,24 @@ def step(mcmc):
             (mcmc.iter, mcmc.sig_value, mcmc.T, float(mcmc.acceptance)/(mcmc.iter+1),
              mcmc.accept_likelihood, mcmc.accept_prior, mcmc.accept_posterior)
     if mcmc.iter % 1000 == 0:
-        np.savetxt(str(iter)+output_file_prefix+'alltestedpositions.txt', mcmc.positions)
-        np.savetxt(str(iter)+output_file_prefix+'totalobj.txt', log_L)
-        np.savetxt(str(iter)+output_file_prefix+'accepted_position_locations.txt', mcmc.accepts)
+	filepref = str(mcmc.iter)+'_'+output_file_prefix
+	name = filepref+'alltestedpositions.txt'
+        np.savetxt(name, mcmc.positions)
+	name = filepref+'totalobj.txt'
+        np.savetxt(name, totalerror)
+	name = filepref+'accepted_position_locations.txt'
+        np.savetxt(name, mcmc.accepts)
 
 #Set BayesSB parameters
 opts = bayessb.MCMCOpts()
-opts.model = Model()
+opts.model = Model(m[0][0], m[0][1])
 opts.anneal_length = 0
 opts.likelihood_fn = likelihood
 opts.step_fn = step
 opts.nsteps = walk_length
 opts.seed = randomseed
 opts.T_init = 1
+opts.estimate_params = opts.model.parameters
 
 totalerror = np.zeros(opts.nsteps)
 
@@ -94,8 +96,8 @@ print 'Starting time:', strftime("%a, %d %b %Y %I:%M:%S")
 mcmc.run()
 print 'Ending time:', strftime("%a, %d %b %Y %I:%M:%S")
 
-np.savetxt(output_file_prefix+'alltestedpositions.txt', mcmc.positions)
-np.savetxt(output_file_prefix+'totalobj.txt', totalerror)
-np.savetxt(output_file_prefix+'accepted_position_locations.txt', mcmc.accepts)
+np.savetxt(output_file_prefix+'_alltestedpositions.txt', mcmc.positions)
+np.savetxt(output_file_prefix+'_totalobj.txt', totalerror)
+np.savetxt(output_file_prefix+'_accepted_position_locations.txt', mcmc.accepts)
 								
 								
