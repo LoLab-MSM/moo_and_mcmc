@@ -5,7 +5,7 @@ Created on Thu May 21 15:14:40 2015
 @author: Erin
 """
 
-import bayessb
+import bayessb_new as bayessb
 from optparse import OptionParser
 import numpy as np
 from time import strftime
