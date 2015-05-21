@@ -40,7 +40,7 @@ cov = 10*np.identity(2)
 m = np.random.multivariate_normal(mean=mu, cov=cov, size=20)
 np.save('ndim_banana_seed.npy', m)
 
-class Parameter(value):
+class Parameter():
     'Simple non-PySB parameters to pass to BayesSB.'
     def __init__(self, value):
         self.value = value
