@@ -38,14 +38,23 @@ def gelman_rubin_trace_dict(trace_dict):
     return Rhat
     
 def create_trace_matrix(trace_dict, burnin=10000, thin=10, chain_num='all'):
+    total_param_dim = 0
+    for key in trace_dict:
+        total_param_dim += len(trace_dict[key][0][0])
+
     if chain_num == 'all':
-        trace_arr = np.zeros(((((len(trace_dict[trace_dict.keys()[0]][0])-burnin)*len(trace_dict[trace_dict.keys()[0]]))/thin), len(trace_dict.keys())))
+        trace_arr = np.zeros(((((len(trace_dict[trace_dict.keys()[0]][0])-burnin)*len(trace_dict[trace_dict.keys()[0]]))/thin), total_param_dim))
     else:
-        trace_arr = np.zeros(((len(trace_dict[trace_dict.keys()[0]][chain_num])-burnin)/thin, len(trace_dict.keys())))
+        trace_arr = np.zeros(((len(trace_dict[trace_dict.keys()[0]][chain_num])-burnin)/thin, total_param_dim))
     for i, key in enumerate(trace_dict.keys()):
         if chain_num == 'all':
             chain_list = [trace_dict[key][j][burnin::thin] for j in range(len(trace_dict[key]))]
-            trace_arr[:,i] = np.concatenate(chain_list)
+            if len(chain_list[0][0]) > 1:
+                for param in range(len(chain_list[0][0])):
+                    chain_list_for_param = [chain_list[nchain][:,param] for nchain in range(len(chain_list))]
+                    trace_arr[:,param] = np.concatenate(chain_list_for_param)
+            else:
+                trace_arr[:,i] = np.concatenate(chain_list)
         else:
             trace_arr[:,i] = trace_dict[key][chain_num][burnin::thin]
     
