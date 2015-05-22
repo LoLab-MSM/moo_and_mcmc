@@ -157,13 +157,13 @@ def step(mcmc):
         print 'iter=%-5d  sigma=%-.3f  T=%-.3f  acc=%-.3f, lkl=%g  prior=%g  post=%g' % \
             (mcmc.iter, mcmc.sig_value, mcmc.T, float(mcmc.acceptance)/(mcmc.iter+1),
              mcmc.accept_likelihood, mcmc.accept_prior, mcmc.accept_posterior)
-    if mcmc.iter % 1000 == 0:
-        np.savetxt(str(mcmc.iter)+output_file_prefix+'alltestedpositions.txt', mcmc.positions)
-        np.savetxt(str(mcmc.iter)+output_file_prefix+'totalobj.txt', totalerror)
-        np.savetxt(str(mcmc.iter)+output_file_prefix+'sobj_error1.txt', error1)
-        np.savetxt(str(mcmc.iter)+output_file_prefix+'sobj_error2.txt', error2)
-        np.savetxt(str(mcmc.iter)+output_file_prefix+'sobj_error3.txt', error3)
-        np.savetxt(str(mcmc.iter)+output_file_prefix+'accepted_position_locations.txt', mcmc.accepts)
+    if mcmc.iter % 100000 == 0:
+        np.save(str(mcmc.iter)+output_file_prefix+'alltestedpositions.npy', mcmc.positions)
+        np.save(str(mcmc.iter)+output_file_prefix+'totalobj.npy', totalerror)
+        np.save(str(mcmc.iter)+output_file_prefix+'sobj_error1.npy', error1)
+        np.save(str(mcmc.iter)+output_file_prefix+'sobj_error2.npy', error2)
+        np.save(str(mcmc.iter)+output_file_prefix+'sobj_error3.npy', error3)
+        np.save(str(mcmc.iter)+output_file_prefix+'accepted_position_locations.npy', mcmc.accepts)
 
 #Set BayesSB parameters
 opts = bayessb.MCMCOpts()
@@ -216,10 +216,9 @@ print 'Starting time:', strftime("%a, %d %b %Y %I:%M:%S")
 mcmc.run()
 print 'Ending time:', strftime("%a, %d %b %Y %I:%M:%S")
 
-np.savetxt(output_file_prefix+'alltestedpositions.txt', mcmc.positions)
-np.savetxt(output_file_prefix+'totalobj.txt', totalerror)
-np.savetxt(output_file_prefix+'sobj_error1.txt', error1)
-np.savetxt(output_file_prefix+'sobj_error2.txt', error2)
-np.savetxt(output_file_prefix+'sobj_error3.txt', error3)
-np.savetxt(output_file_prefix+'accepted_position_locations.txt', mcmc.accepts)
-
+np.save(output_file_prefix+'alltestedpositions.npy', mcmc.positions)
+np.save(output_file_prefix+'totalobj.npy', totalerror)
+np.save(output_file_prefix+'sobj_error1.npy', error1)
+np.save(output_file_prefix+'sobj_error2.npy', error2)
+np.save(output_file_prefix+'sobj_error3.npy', error3)
+np.save(output_file_prefix+'accepted_position_locations.npy', mcmc.accepts)
