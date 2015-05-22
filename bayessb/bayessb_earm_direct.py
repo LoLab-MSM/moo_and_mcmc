@@ -38,7 +38,7 @@ obs_totals = [model.parameters['Bid_0'].value,
 # Load experimental data file
 if socket.gethostname() == 'Erins-MacBook-Pro.local':
     earm_path = '/Users/Erin/git/earm'
-if socket.gethostname() == 'localhost':
+if socket.gethostname() == 'puma':
     # This is the puma host name
     earm_path = '/home/shockle/earm'
 data_path = os.path.join(earm_path, 'xpdata', 'forfits',
@@ -147,7 +147,7 @@ def likelihood(mcmc, position):
 def prior(mcmc, position):
     """Normal probability density.  Chosen to be the same as PyMC's normal prior"""
 
-    prob_dens = (-tau * (position - prior_mean) ** 2 + np.log(tau / np.pi / 2.)) / 2.    
+    prob_dens = np.sum((-tau * (position - prior_mean) ** 2 + np.log(tau / np.pi / 2.)) / 2.)    
     
     return -prob_dens
 
