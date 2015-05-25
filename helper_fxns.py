@@ -332,6 +332,62 @@ def print_convergence_summary(param_trace):
     print 'Number of parameters with GR below 1.1: ',params1_1,' of ',len(param_trace),' parameters.'
     print 'Percent of parameters with GR below 1.1: ',perc_11
     
+def convert_bayessb_output_to_tracedict(model, chain_prefix=None, prefix=None, accepts_suffix=None, tests_suffix=None, nchains=3, other_keys = None):
+    if prefix == None:
+        prefix = ''
+    
+    if chain_prefix == None:
+        chain_prefix = ''
         
+    if accepts_suffix == None:
+        accepts_suffix = '_accepted_position_locations.npy'
+    
+    if tests_suffix == None:
+        tests_suffix = '_alltestedpositions.npy'
+    
+    trace_dict = {}
+    trace_dict['params'] = []
+    new_keys = []
+    if other_keys != None:
+        for key in other_keys:
+            key = re.sub('_', '', key)
+            key = re.sub('.npy', '', key)
+            trace_dict[key] = []
+            new_keys.append(key)
+    
+    starting_point = []
+    for param in model.parameters_rules():
+        starting_point.append(np.log10(param.value))
+    
+    for chain in range(1, nchains+1):
+        accepts_filename = chain_prefix+str(chain)+prefix+accepts_suffix
+        tests_filename = chain_prefix+str(chain)+prefix+tests_suffix
         
+        accepts = np.load(accepts_filename)
+        tests = np.load(tests_filename)
+        
+        accepted_positions = np.zeros(np.shape(tests))
+        
+        last_accept = starting_point        
+        
+        for position in range(len(tests)):
+            if accepts[position] == True:
+                accepted_positions[position] = tests[position]
+                last_accept = tests[position]
+            
+            else:
+                accepted_positions[position] = last_accept
+        
+        trace_dict['params'].append(accepted_positions)
+        last_accept = starting_point
+        
+        if other_keys != None:
+            for old_key, new_key in zip(other_keys, new_keys):
+                filename = chain_prefix+str(chain)+prefix+old_key
+                
+                data = np.load(filename)
+                
+                trace_dict[new_key].append(data) 
+    
+    return trace_dict
         
