@@ -26,10 +26,16 @@ walk_length = options.walk_length
 if walk_length == None:
     walk_length = 50000
 
-#Start at random location in parameter space drawn from prior
-for param in model.parameters_rules():
-    new_value = np.random.normal(np.log10(param.value))
-    param.value = 10**new_value
+##Start at random location in parameter space drawn from prior
+#for param in model.parameters_rules():
+#    new_value = np.random.normal(np.log10(param.value))
+#    param.value = 10**new_value
+
+#Start at end of last chain.
+old_trace = pickle.load(open('earm_direct_bayessb_normal_randstart.p'))
+last_position = old_trace['params'][randomseed-1][-1]
+for param, new_param in zip(model.parameters_rules(), last_position):
+    param.value = 10**new_param
 
 # List of model observables and corresponding data file columns for
 # point-by-point fitting
