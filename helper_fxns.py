@@ -279,7 +279,7 @@ def check_gr_over_time(model, trace_dict, interval=1000, params_to_remove=None):
             
     param_vec_dict = convert_param_vec_dict_to_param_dict(trace_dict, model.parameters_rules())
     gr_results = []
-    for end in range(interval, len(trace_dict.keys[0]), interval):
+    for end in range(interval, len(trace_dict[trace_dict.keys()[0]][0]), interval):
         shorter_dict = {}
         for key in param_vec_dict:
             shorter_trace = [param_vec_dict[key][chain_num][:end] for chain_num in range(len(param_vec_dict[key]))]
