@@ -40,7 +40,10 @@ def gelman_rubin_trace_dict(trace_dict):
 def create_trace_matrix(trace_dict, burnin=10000, thin=10, chain_num='all'):
     total_param_dim = 0
     for key in trace_dict:
-        total_param_dim += len(trace_dict[key][0][0])
+        try:
+            total_param_dim += len(trace_dict[key][0][0])
+        except TypeError:
+            total_param_dim += 1
 
     if chain_num == 'all':
         trace_arr = np.zeros(((((len(trace_dict[trace_dict.keys()[0]][0])-burnin)*len(trace_dict[trace_dict.keys()[0]]))/thin), total_param_dim))
@@ -49,11 +52,12 @@ def create_trace_matrix(trace_dict, burnin=10000, thin=10, chain_num='all'):
     for i, key in enumerate(trace_dict.keys()):
         if chain_num == 'all':
             chain_list = [trace_dict[key][j][burnin::thin] for j in range(len(trace_dict[key]))]
-            if len(chain_list[0][0]) > 1:
-                for param in range(len(chain_list[0][0])):
-                    chain_list_for_param = [chain_list[nchain][:,param] for nchain in range(len(chain_list))]
-                    trace_arr[:,param] = np.concatenate(chain_list_for_param)
-            else:
+            try:
+                if len(chain_list[0][0]) > 1:
+                    for param in range(len(chain_list[0][0])):
+                        chain_list_for_param = [chain_list[nchain][:,param] for nchain in range(len(chain_list))]
+                        trace_arr[:,param] = np.concatenate(chain_list_for_param)
+            except TypeError:
                 trace_arr[:,i] = np.concatenate(chain_list)
         else:
             trace_arr[:,i] = trace_dict[key][chain_num][burnin::thin]
@@ -272,14 +276,17 @@ def load_model_files(model_name, directory=None):
     
     return model
             
-def check_gr_over_time(model, trace_dict, interval=1000, params_to_remove=None):
+def check_gr_over_time(trace_dict, model=None, interval=50000, params_to_remove=None):
     if params_to_remove != None:
         for param in params_to_remove:
             del trace_dict[param]
-            
-    param_vec_dict = convert_param_vec_dict_to_param_dict(trace_dict, model.parameters_rules())
+     
+    if model:
+        param_vec_dict = convert_param_vec_dict_to_param_dict(trace_dict, model.parameters_rules())
+    else:
+        param_vec_dict = trace_dict
     gr_results = []
-    for end in range(interval, len(trace_dict[trace_dict.keys()[0]][0]), interval):
+    for end in range(interval, len(trace_dict[trace_dict.keys()[0]][0])+1, interval):
         shorter_dict = {}
         for key in param_vec_dict:
             shorter_trace = [param_vec_dict[key][chain_num][:end] for chain_num in range(len(param_vec_dict[key]))]
@@ -293,10 +300,12 @@ def check_gr_over_time(model, trace_dict, interval=1000, params_to_remove=None):
             if gr[param] < 1.1:
                 params1_1 += 1
     
-        perc_12 = (float(params1_2)/len(model.parameters_rules()))*100
-        perc_11 = (float(params1_1)/len(model.parameters_rules()))*100
+        
+        perc_12 = (float(params1_2)/len(param_vec_dict))*100
+        perc_11 = (float(params1_1)/len(param_vec_dict))*100
         results = [params1_2, perc_12, params1_1, perc_11]
         gr_results.append(results)
+        print 'Finished result for trace length = ',end
         
     return gr_results
     
@@ -331,6 +340,8 @@ def print_convergence_summary(param_trace):
     print 'Percent of parameters with GR below 1.2: ',perc_12
     print 'Number of parameters with GR below 1.1: ',params1_1,' of ',len(param_trace),' parameters.'
     print 'Percent of parameters with GR below 1.1: ',perc_11
+    
+    return [params1_2, perc_12, params1_1, perc_11]
     
 def convert_bayessb_output_to_tracedict(model, chain_prefix=None, prefix=None, accepts_suffix=None, tests_suffix=None, nchains=3, other_keys = None):
     if prefix == None:

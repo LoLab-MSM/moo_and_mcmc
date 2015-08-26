@@ -41,7 +41,7 @@ momp_var = np.array([7245000.0, 3600.0, 1e4])
 # experimental data but with greater resolution to help the integrator converge.
 ntimes = len(exp_data['Time'])
 # Factor by which to increase time resolution
-tmul = 10
+tmul = 100
 # Do the sampling such that the original experimental timepoints can be
 # extracted with a slice expression instead of requiring interpolation.
 tspan = np.linspace(exp_data['Time'][0], exp_data['Time'][-1],
@@ -53,15 +53,19 @@ solver = pysb.integrate.Solver(earm, tspan, integrator='vode', rtol=1e-7, atol=1
 def likelihood(param_vector):
     # Sub in parameter values for current location in parameter space and simulate
     for i in range(len(param_vector)):
-        if 'kr' in earm.parameters_rules()[name_dict[i]].name:
+        if i in kr_idx:
             #Sampled value is a KD value that is then used with the kf to choose a kr
-            earm.parameters_rules()[name_dict[i]].value = 10**(param_vector[i]*param_vector[i-1])
+            earm.parameters_rules()[name_dict[i]].value = 10**(param_vector[i]+param_vector[i-1])
+        #    earm.parameters_rules()[name_dict[i]].value = 10**param_vector[i]
             #print 'KD value = ',10**param_vector[i]
-            #print 'set parameter: ',earm.parameters_rules()[name_dict[i]].name,' to ',10**(param_vector[i]*param_vector[i-1])
+            #print 'set parameter: ',earm.parameters_rules()[name_dict[i]].name,' to ',10**(param_vector[i]+param_vector[i-1])
         else:
             earm.parameters_rules()[name_dict[i]].value = 10**param_vector[i]
             #print 'set parameter: ',earm.parameters_rules()[name_dict[i]].name,' to ',10**param_vector[i]
-
+        #earm.parameters_rules()[name_dict[i]].value = 10**param_vector[i]
+    #print 'subbed kf vals: ',10**param_vector[kf_idx]
+    #print 'subbed kr vals: ',10**param_vector[kr_idx]
+    #print 'subbed kc vals: ',10**param_vector[kc_idx]
     solver.run()
     
     e1 = {}
@@ -79,11 +83,11 @@ def likelihood(param_vector):
         e1[obs_name] = np.sum((ydata - ysim_norm) ** 2 / (2 * yvar)) / len(ydata)    
     
     e1_mBid = e1['mBid'] 
-    e1_mBid = -np.log(e1_mBid)
+    e1_mBid = -e1_mBid
     if np.isnan(e1_mBid):
         e1_mBid = -np.inf
     e1_cPARP = e1['cPARP']
-    e1_cPARP = -np.log(e1_cPARP)
+    e1_cPARP = -e1_cPARP
     if np.isnan(e1_cPARP):
         e1_cPARP = -np.inf
     # Calculate Td, Ts, and final value for IMS-RP reporter
@@ -119,10 +123,14 @@ def likelihood(param_vector):
     
     # Perform chi-squared calculation against mean and variance vectors
     e2 = np.sum((momp_data - momp_sim) ** 2 / (2 * momp_var)) / 3
-    e2 = -np.log(e2)
+    e2 = -e2
     if np.isnan(e2):
         e2 = -np.inf
     #error = e1_mBid + e1_cPARP + e2
+    #print 'subbed values: ',[np.log10(param.value) for param in earm.parameters_rules()]
+    #print 'mBid error: ',e1_mBid
+    #print 'e1_cPARP: ',e1_cPARP
+    #print 'e2: ',e2
     
     return np.array(e1_mBid), np.array(e1_cPARP), np.array(e2) #to use gpu add .astype('float32') to end of first two arrays
     #return np.array(error)
@@ -134,16 +142,23 @@ with model:
     #params = pm.Normal('params', mu=[np.log10(param.value) for param in earm.parameters_rules()], sd=np.array([1.0]*len(earm.parameters_rules())), shape=(len(earm.parameters_rules())))
     lower_limits = np.zeros(len(earm.parameters_rules()))
     upper_limits = np.zeros(len(earm.parameters_rules()))
+    starting_vals = np.zeros(len(earm.parameters_rules()))
     kf_idx = [idx for idx, param in enumerate(earm.parameters_rules()) if 'kf' in param.name]
     kr_idx = [idx for idx, param in enumerate(earm.parameters_rules()) if 'kr' in param.name]
     kc_idx = [idx for idx, param in enumerate(earm.parameters_rules()) if 'kc' in param.name]
     lower_limits[kf_idx] = -16    
-    upper_limits[kf_idx] = -6
+    upper_limits[kf_idx] = -1
     #Sampling for kr is really KD values that are then used with the sampled kf to choose a kr
-    lower_limits[kr_idx] = 0
-    upper_limits[kr_idx] = 9
-    lower_limits[kc_idx] = -2
+    lower_limits[kr_idx] = -3
+    upper_limits[kr_idx] = 15
+    lower_limits[kc_idx] = -6
     upper_limits[kc_idx] = 3
+    starting_vals[kf_idx] = np.log10([param.value for param in earm.parameters_rules() if 'kf' in param.name])
+    #print 'starting kf vals: ',10**starting_vals[kf_idx]
+    starting_vals[kr_idx] = np.log10([param.value for param in earm.parameters_rules() if 'kr' in param.name])-starting_vals[kf_idx]
+    #print 'starting kr vals: ',10**starting_vals[kr_idx]    
+    starting_vals[kc_idx] = np.log10([param.value for param in earm.parameters_rules() if 'kc' in param.name])
+    #print 'starting kc vals: ',10**starting_vals[kc_idx]    
     params = pm.Uniform('params', lower=lower_limits, upper=upper_limits, shape=(len(earm.parameters_rules())))    
     
     #Create dictionary of parameter locations in vector and names for use in likelihood function    
@@ -163,16 +178,21 @@ with model:
     #error_like = pm.ArbLikelihood('like', error)    
     
     #Select point in parameter space to start
-    #start = pm.find_MAP()
-    
+    starting_pts = np.ones(len(starting_vals)) * np.random.randn(3, len(starting_vals)) + starting_vals
+    for npt, pt in enumerate(starting_pts):
+       while np.any(pt < lower_limits) or np.any(pt > upper_limits):
+           starting_pts[npt] = np.ones(len(starting_vals)) * np.random.randn(1, len(starting_vals)) + starting_vals
+    starts = [{'params':starting_pts[chain]} for chain in range(3)]
+    starts[0]['params'] = starting_vals 
+    #print 'starts: ',starts
     #Select stepping method
     nseedchains = 10*len(earm.parameters_rules())
-    step = pm.Dream(variables=[model.params], nseedchains=nseedchains, snooker=0, blocked=True, start_random=True, save_history=True, parallel=False, model_name='earm_dreamz_3chain_a')
+    step = pm.Dream(variables=[model.params], nseedchains=nseedchains, verbose=True, blocked=True, start_random=False, save_history=True, parallel=False, model_name='earm_mtdreamzs_3chain_uni')
     
     #old_trace = text.load('2015_04_30_earm_direct_mtdreamzs_normal_prior')
-    trace = pm.sample(350000, step, njobs=3, use_mpi=False) #pass njobs=None to start multiple chains on different cpus
+    trace = pm.sample(30000, step, start=starts, njobs=3, use_mpi=False) #pass njobs=None to start multiple chains on different cpus
     
-    text.dump('earm_dreamz_3chain_a', trace)    
+    text.dump('earm_mtdreamzs_3chain_uni', trace)    
     #text.dump('test', trace)       
     
     dictionary_to_pickle = {}
@@ -181,7 +201,7 @@ with model:
         for var in dictionary:
             dictionary_to_pickle[var] = trace[var] 
     
-    pickle.dump(dictionary_to_pickle, open('earm_dreamz_3chain_a.p', 'wb'))
+    pickle.dump(dictionary_to_pickle, open('earm_mtdreamzs_3chain_uni.p', 'wb'))
     #pickle.dump(dictionary_to_pickle, open('test.p', 'wb'))
     
 #    from helper_fxns import convert_param_vec_dict_to_param_dict
