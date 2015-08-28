@@ -83,11 +83,11 @@ def likelihood(param_vector):
         e1[obs_name] = np.sum((ydata - ysim_norm) ** 2 / (2 * yvar)) / len(ydata)    
     
     e1_mBid = e1['mBid'] 
-    e1_mBid = -e1_mBid
+    e1_mBid = -np.log10(e1_mBid)
     if np.isnan(e1_mBid):
         e1_mBid = -np.inf
     e1_cPARP = e1['cPARP']
-    e1_cPARP = -e1_cPARP
+    e1_cPARP = -np.log10(e1_cPARP)
     if np.isnan(e1_cPARP):
         e1_cPARP = -np.inf
     # Calculate Td, Ts, and final value for IMS-RP reporter
@@ -123,7 +123,7 @@ def likelihood(param_vector):
     
     # Perform chi-squared calculation against mean and variance vectors
     e2 = np.sum((momp_data - momp_sim) ** 2 / (2 * momp_var)) / 3
-    e2 = -e2
+    e2 = -np.log10(e2)
     if np.isnan(e2):
         e2 = -np.inf
     #error = e1_mBid + e1_cPARP + e2
