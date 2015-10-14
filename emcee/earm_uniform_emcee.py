@@ -23,7 +23,7 @@ obs_totals = [earm.parameters['Bid_0'].value,
               earm.parameters['PARP_0'].value]
 
 # Load experimental data file
-earm_path = '/home/shockle/earm'
+earm_path = '/Users/Erin/git/earm'
 data_path = os.path.join(earm_path, 'xpdata', 'forfits',
                          'EC-RP_IMS-RP_IC-RP_data_for_models.csv')
 exp_data = np.genfromtxt(data_path, delimiter=',', names=True)
@@ -177,15 +177,16 @@ def log_post(theta):
     return post
     
 ndim = len(earm.parameters_rules())
-nwalkers = 250
+nwalkers = 500
 
 start = [starting_vals + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
 
-sampler = emcee.EnsembleSampler(nwalkers, ndim, log_post, threads=16)
+if __name__=='__main__':
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_post, threads=6)
 
-sampler.run_mcmc(start, 500)
+    sampler.run_mcmc(start, 3000)
 
-np.save('earm_uniform_emcee_250_500.npy', sampler.chain)
+    np.save('earm_uniform_emcee_500_3000.npy', sampler.chain)
 
 
     

@@ -15,21 +15,25 @@ from pysb.bng import generate_equations
 import os
 import dill
 
-def gelman_rubin_trace_dict(trace_dict):
+def gelman_rubin_trace_dict(trace_dict, burnin=0):
     Rhat = {}
     def calc_rhat(var_dict):
         # a ValueError that will handle the multidimensional case
-        n = len(var_dict[0])
-
+        n = burnin
+            
+        last_samples = [var_dict[chain][n::] for chain in range(len(var_dict))]
+        
+        n = len(var_dict[0])-burnin
+        
         # Calculate between-chain variance
-        B = n * np.var(np.mean(var_dict, axis=1), ddof=1)
+        B = n * np.var(np.mean(last_samples, axis=1), ddof=1)
 
         # Calculate within-chain variance
-        W = np.mean(np.var(var_dict, axis=1, ddof=1))
+        W = np.mean(np.var(last_samples, axis=1, ddof=1))
 
         # Estimate of marginal posterior variance
         Vhat = W*(n - 1)/n + B/n
-
+    
         return np.sqrt(Vhat/W)
         
     for var in trace_dict:
@@ -49,6 +53,7 @@ def create_trace_matrix(trace_dict, burnin=10000, thin=10, chain_num='all'):
         trace_arr = np.zeros(((((len(trace_dict[trace_dict.keys()[0]][0])-burnin)*len(trace_dict[trace_dict.keys()[0]]))/thin), total_param_dim))
     else:
         trace_arr = np.zeros(((len(trace_dict[trace_dict.keys()[0]][chain_num])-burnin)/thin, total_param_dim))
+        
     for i, key in enumerate(trace_dict.keys()):
         if chain_num == 'all':
             chain_list = [trace_dict[key][j][burnin::thin] for j in range(len(trace_dict[key]))]
@@ -162,7 +167,7 @@ def plot_histograms(trace_dict, trace_arr, bins=10, plot_original_vals=False, mo
     axarr = axarr.flatten()
     xlow = np.min(trace_arr)
     xhigh = np.max(trace_arr)
-    for var_num, variable in enumerate(trace_dict):
+    for var_num, variable in enumerate(trace_dict['param_list']):
         weights = np.ones_like(trace_arr[:,var_num])/len(trace_arr[:,var_num])
         axarr[n].hist(trace_arr[:,var_num], histtype='stepfilled', bins=bins, color='k', weights=weights)
         if plot_original_vals==True:
@@ -200,7 +205,7 @@ def sample_plots(trace_dict):
     print len(trace_dict[trace_dict.keys()[0]])
     print len(trace_dict[trace_dict.keys()[0]][0])
 
-    for variable in trace_dict:
+    for variable in trace_dict['param_list']:
         for chain in range(len(trace_dict[trace_dict.keys()[0]])):
             axarr[n].plot(iterations, trace_dict[variable][chain])
         axarr[n].set_title(str(variable))
@@ -234,7 +239,7 @@ def convert_param_vec_dict_to_param_dict(param_vec_dict, pysb_parameter_list):
     param_dict = {}
     for param_num, param in enumerate(pysb_parameter_list):
         param_dict[param.name] = [param_vec_dict[param_vec_dict.keys()[0]][chain][:,param_num] for chain in range(len(param_vec_dict[param_vec_dict.keys()[0]]))]
-    
+    param_dict['param_list'] = [param.name for param in pysb_parameter_list]
     return param_dict
     
 def plot_tsne_data(unique_tsne_output, original_trace_arr, histogram=True, hexbin_gridsize=None):
