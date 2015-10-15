@@ -42,6 +42,8 @@ def gelman_rubin_trace_dict(trace_dict, burnin=0):
     return Rhat
     
 def create_trace_matrix(trace_dict, burnin=10000, thin=10, chain_num='all'):
+    if 'param_list' not in trace_dict:
+        trace_dict['param_list'] = [key for key in trace_dict.keys()]
     total_param_dim = 0
     for key in trace_dict:
         try:
@@ -54,7 +56,7 @@ def create_trace_matrix(trace_dict, burnin=10000, thin=10, chain_num='all'):
     else:
         trace_arr = np.zeros(((len(trace_dict[trace_dict.keys()[0]][chain_num])-burnin)/thin, total_param_dim))
         
-    for i, key in enumerate(trace_dict.keys()):
+    for i, key in enumerate(trace_dict['param_list']):
         if chain_num == 'all':
             chain_list = [trace_dict[key][j][burnin::thin] for j in range(len(trace_dict[key]))]
             try:
@@ -73,7 +75,7 @@ def find_most_probable_vals(trace_array, trace_dict, axis=0):
     map_vals = {}
     u, indices = np.unique(trace_array, return_inverse=True)
     map_vector = u[np.argmax(np.apply_along_axis(np.bincount, axis, indices.reshape(trace_array.shape), None, np.max(indices) + 1), axis=axis)]
-    for i, key in enumerate(trace_dict.keys()):
+    for i, key in enumerate(trace_dict['param_list']):
         map_vals[key] = map_vector[i]
     
     return map_vals
@@ -138,7 +140,7 @@ def check_thermoboxes(param_dict, log=True):
 def calc_credible_intervals(trace_arr, trace_dict, alpha=.05):
     hpd_dict = {}
     
-    for i, key in enumerate(trace_dict.keys()):
+    for i, key in enumerate(trace_dict['param_list']):
         hpd_dict[key] = hpd(trace_arr[:,i], alpha)
         
     return hpd_dict
@@ -194,6 +196,8 @@ def plot_histograms(trace_dict, trace_arr, bins=10, plot_original_vals=False, mo
     return fig_list
     
 def sample_plots(trace_dict):
+    if 'param_list' not in trace_dict:
+        trace_dict['param_list'] = [key for key in trace_dict.keys()]
     fig_list = []
     
     n = 0
@@ -228,8 +232,8 @@ def sample_plots(trace_dict):
 
 def create_ratio_trace_dict(trace_dict):
     trace_ratio_dict = {}
-    for param_num_1, parameter_1 in enumerate(trace_dict.keys()):
-        for param_num_2, parameter_2 in enumerate(trace_dict.keys()[param_num_1+1::]):
+    for param_num_1, parameter_1 in enumerate(trace_dict['param_list']):
+        for param_num_2, parameter_2 in enumerate(trace_dict['param_list'][param_num_1+1::]):
             key_name = 'ratio_'+str(parameter_1)+'_'+str(parameter_2)
             trace_ratio_dict[key_name] = [trace_dict[parameter_1][i]/trace_dict[parameter_2][i] for i in range(len(trace_dict[parameter_1]))]
     
