@@ -16,6 +16,10 @@ import os
 import dill
 
 def gelman_rubin_trace_dict(trace_dict, burnin=0):
+    try:
+        trace_dict.pop('param_list')
+    except KeyError:
+        pass
     Rhat = {}
     def calc_rhat(var_dict):
         # a ValueError that will handle the multidimensional case
