@@ -54,7 +54,8 @@ def create_trace_matrix(trace_dict, burnin=10000, thin=10, chain_num='all'):
             total_param_dim += len(trace_dict[key][0][0])
         except TypeError:
             total_param_dim += 1
-
+    #Correct for extra param list key
+    total_param_dim -= 1
     if chain_num == 'all':
         trace_arr = np.zeros(((((len(trace_dict[trace_dict.keys()[0]][0])-burnin)*len(trace_dict[trace_dict.keys()[0]]))/thin), total_param_dim))
     else:
