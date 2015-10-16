@@ -347,9 +347,9 @@ def print_convergence_summary(param_trace):
     perc_12 = (float(params1_2)/len(gr_results))*100
     perc_11 = (float(params1_1)/len(gr_results))*100
     
-    print 'Number of parameters with GR below 1.2: ',params1_2,' of ',len(param_trace),' parameters.'
+    print 'Number of parameters with GR below 1.2: ',params1_2,' of ',len(gr_results),' parameters.'
     print 'Percent of parameters with GR below 1.2: ',perc_12
-    print 'Number of parameters with GR below 1.1: ',params1_1,' of ',len(param_trace),' parameters.'
+    print 'Number of parameters with GR below 1.1: ',params1_1,' of ',len(gr_results),' parameters.'
     print 'Percent of parameters with GR below 1.1: ',perc_11
     
     return [params1_2, perc_12, params1_1, perc_11]
