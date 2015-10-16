@@ -37,7 +37,7 @@ def gelman_rubin_trace_dict(trace_dict, burnin=0):
         return np.sqrt(Vhat/W)
         
     for var in trace_dict:
-        if var != 'param_dict':
+        if var != 'param_list':
             Rhat[var] = calc_rhat(trace_dict[var])
     
     return Rhat
