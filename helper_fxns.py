@@ -193,7 +193,10 @@ def plot_histograms(trace_dict, trace_arr, bins=10, plot_original_vals=False, mo
             fig, axarr = plt.subplots(3, 2)
             axarr = axarr.flatten()
             n = 0
-        
+    if n != 6:
+        fig_list.append(fig)
+        axarr_list.append(axarr)
+    
     #fig1.subplots_adjust(wspace=.5, hspace=1)
     #fig2.subplots_adjust(wspace=.5, hspace=1)
 
