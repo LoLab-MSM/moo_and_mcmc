@@ -161,6 +161,7 @@ def plot_histograms(trace_dict, trace_arr, bins=10, plot_original_vals=False, mo
         raise Exception('Model needs to be specified')
     
     fig_list = []
+    axarr_list = []
     
     #fig1, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2)
 
@@ -188,6 +189,7 @@ def plot_histograms(trace_dict, trace_arr, bins=10, plot_original_vals=False, mo
         if n == 6:
             fig.subplots_adjust(wspace=.5, hspace=1)
             fig_list.append(fig)
+            axarr_list.append(axarr)
             fig, axarr = plt.subplots(3, 2)
             axarr = axarr.flatten()
             n = 0
@@ -195,7 +197,7 @@ def plot_histograms(trace_dict, trace_arr, bins=10, plot_original_vals=False, mo
     #fig1.subplots_adjust(wspace=.5, hspace=1)
     #fig2.subplots_adjust(wspace=.5, hspace=1)
 
-    return fig_list
+    return fig_list, axarr_list
     
 def sample_plots(trace_dict):
     if 'param_list' not in trace_dict:
