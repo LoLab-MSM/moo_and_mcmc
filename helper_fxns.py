@@ -170,11 +170,21 @@ def plot_histograms(trace_dict, trace_arr, bins=10, plot_original_vals=False, mo
     n = 0
     fig, axarr = plt.subplots(3, 2)
     axarr = axarr.flatten()
-    xlow = np.min(trace_arr)
-    xhigh = np.max(trace_arr)
+    if type(trace_arr) is list:
+        xlow = np.min(np.concatenate(trace_arr))
+        xhigh = np.min(np.concatenate(trace_arr))
+    else:
+        xlow = np.min(trace_arr)
+        xhigh = np.max(trace_arr)
     for var_num, variable in enumerate(trace_dict['param_list']):
-        weights = np.ones_like(trace_arr[:,var_num])/len(trace_arr[:,var_num])
-        axarr[n].hist(trace_arr[:,var_num], histtype='stepfilled', bins=bins, color='k', weights=weights)
+        if type(trace_arr) is list:
+            for arr in trace_arr:
+                weights = np.ones_like(arr[:,var_num])/len(arr[:,var_num])
+                axarr[n].hist(arr[:,var_num], histtype='stepfilled', bins=bins, weights=weights)
+        else:
+            weights = np.ones_like(trace_arr[:,var_num])/len(trace_arr[:,var_num])
+            axarr[n].hist(trace_arr[:,var_num], histtype='stepfilled', bins=bins, color='k', weights=weights)
+            
         if plot_original_vals==True:
             axarr[n].vlines(np.log10(model.parameters[variable].value), 0, .5)
         if param_name_change_dict is not None:
