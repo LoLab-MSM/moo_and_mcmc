@@ -12,11 +12,21 @@ import Dream_shared_vars
 from Dream import Dream, DreamPool
 from model import Model
 
-def run_dream(parameters, likelihood, nchains=5, niterations=50000, start=None, **kwargs):
+def run_dream(parameters, likelihood, nchains=5, niterations=50000, start=None, restart=False, verbose=True, **kwargs):
+
+    if restart:
+        if start == None:
+            raise Exception('Restart run specified but no start positions given.')
+        if 'model_name' not in kwargs:
+            raise Exception('Restart run specified but no model name to load history and crossover value files from given.')
     
     model = Model(likelihood=likelihood, sampled_parameters=parameters)
-        
-    step_instance = Dream(model=model, variables=parameters, **kwargs)
+    
+    if restart:    
+        step_instance = Dream(model=model, variables=parameters, history_file=kwargs['model_name']+'_DREAM_chain_history.npy', crossover_file=kwargs['model_name']+'_DREAM_chain_adapted_crossoverprob.npy', verbose=verbose, **kwargs)
+
+    else:
+        step_instance = Dream(model=model, variables=parameters, **kwargs)
 
     pool = _setup_mp_dream_pool(nchains, niterations, step_instance, start_pt=start)
     
@@ -75,6 +85,7 @@ def _setup_mp_dream_pool(nchains, niterations, step_instance, start_pt=None):
         raise Exception('The size of the seeded starting history is insufficient.  Increase nseedchains>=%s.' %str(min_nseedchains))
         
     current_position_dim = nchains*step_instance.total_var_dimension
+    print 'len history file: ',arr_dim
     history_arr = mp.Array('d', [0]*arr_dim)
     if step_instance.history_file != False:
         history_arr[0:len_old_history] = old_history.flatten()
