@@ -11,6 +11,7 @@ import multiprocess as mp
 import Dream_shared_vars
 from Dream import Dream, DreamPool
 from model import Model
+import traceback
 
 def run_dream(parameters, likelihood, nchains=5, niterations=50000, start=None, restart=False, verbose=True, **kwargs):
 
@@ -33,8 +34,8 @@ def run_dream(parameters, likelihood, nchains=5, niterations=50000, start=None, 
     if type(start) is list:
         args = zip([step_instance]*nchains, [niterations]*nchains, start)
     else:
-        args = zip([step_instance]*nchains, [niterations]*nchains, [start]*nchains)    
-    
+        args = zip([step_instance]*nchains, [niterations]*nchains, [start]*nchains)  
+
     returned_vals = pool.map(sample_dream, args)
     sampled_params = [val[0] for val in returned_vals]
     log_ps = [val[1] for val in returned_vals]   
@@ -42,18 +43,25 @@ def run_dream(parameters, likelihood, nchains=5, niterations=50000, start=None, 
     return sampled_params, log_ps
 
 def sample_dream(args):
-    dream_instance = args[0]
-    iterations = args[1]
-    start = args[2]
-    step_fxn = getattr(dream_instance, 'astep')
-    sampled_params = np.empty((iterations, dream_instance.total_var_dimension))
-    log_ps = np.empty((iterations, 1))
-    q0 = start
-    for iteration in range(iterations):
-        if iteration%10 == 0:
-            print('Iteration: ',iteration)
-        sampled_params[iteration], log_ps[iteration] = step_fxn(q0)
-        q0 = sampled_params[iteration]            
+
+    try: 
+        dream_instance = args[0]
+        iterations = args[1]
+        start = args[2]
+        step_fxn = getattr(dream_instance, 'astep')
+        sampled_params = np.empty((iterations, dream_instance.total_var_dimension))
+        log_ps = np.empty((iterations, 1))
+        q0 = start
+        for iteration in range(iterations):
+            if iteration%10 == 0:
+                print('Iteration: ',iteration)
+            sampled_params[iteration], log_ps[iteration] = step_fxn(q0)
+            q0 = sampled_params[iteration]   
+            
+    except Exception as e:
+        traceback.print_exc()
+        print()
+        raise e
 
     return sampled_params, log_ps
 
@@ -85,7 +93,6 @@ def _setup_mp_dream_pool(nchains, niterations, step_instance, start_pt=None):
         raise Exception('The size of the seeded starting history is insufficient.  Increase nseedchains>=%s.' %str(min_nseedchains))
         
     current_position_dim = nchains*step_instance.total_var_dimension
-    print 'len history file: ',arr_dim
     history_arr = mp.Array('d', [0]*arr_dim)
     if step_instance.history_file != False:
         history_arr[0:len_old_history] = old_history.flatten()

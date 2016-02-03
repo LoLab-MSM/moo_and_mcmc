@@ -22,12 +22,15 @@ class NormalParam(SampledParam):
         self.dsize = np.array(value).size
         self.mu = mu
         self.sd = sd
+        self.dis = None
     
     def random(self):
         return np.random.normal(self.mu, self.sd)
     
     def prior(self, q0):
-        return np.sum(norm.logpdf(q0, self.mu, self.sd))
+        if self.dis == None:
+            self.dis = norm(loc=self.mu, scale=self.sd)
+        return np.sum(self.dis.logpdf(q0))
 
 class UniformParam(SampledParam):
     def __init__(self, name, value, lower, upper):
@@ -37,9 +40,12 @@ class UniformParam(SampledParam):
         self.lower = lower
         self.upper = upper
         self.range = self.upper - self.lower
+        self.dis = None
         
     def random(self):
         return np.random.uniform(self.lower, self.upper)
     
     def prior(self, q0):
-        return np.sum(uniform.logpdf(q0, self.lower, self.range))
+        if self.dis == None:
+            self.dis = uniform(loc=self.lower, scale=self.range)
+        return np.sum(self.dis.logpdf(q0))
