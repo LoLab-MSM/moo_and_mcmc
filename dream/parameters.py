@@ -49,3 +49,13 @@ class UniformParam(SampledParam):
         if self.dis == None:
             self.dis = uniform(loc=self.lower, scale=self.range)
         return np.sum(self.dis.logpdf(q0))
+    
+class FlatParam(SampledParam):
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
+        self.dsize = np.array(value).size
+        
+    def prior(self, q0):
+        return 0
+        

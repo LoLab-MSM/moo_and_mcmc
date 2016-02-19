@@ -18,7 +18,8 @@ class Model():
            var_end = param.dsize + var_start
            prior_logp += param.prior(q0[var_start:var_end])
            var_start += param.dsize
-        return prior_logp + self.likelihood(q0) 
+           like = self.likelihood(q0)
+        return prior_logp + like
     
         
         
