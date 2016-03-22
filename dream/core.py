@@ -52,11 +52,22 @@ def sample_dream(args):
         sampled_params = np.empty((iterations, dream_instance.total_var_dimension))
         log_ps = np.empty((iterations, 1))
         q0 = start
+        naccepts = 0
+        naccepts100win = 0
         for iteration in range(iterations):
             if iteration%10 == 0:
-                print('Iteration: ',iteration)
+                acceptance_rate = float(naccepts)/(iteration+1)
+                print('Iteration: ',iteration,' acceptance rate: ',acceptance_rate)
+                if iteration%100 == 0:
+                    acceptance_rate_100win = float(naccepts100win)/100
+                    print('Iteration: ',iteration,' acceptance rate over last 100 iterations: ',acceptance_rate_100win)
+                    naccepts100win = 0
+            old_params = q0
             sampled_params[iteration], log_ps[iteration] = step_fxn(q0)
             q0 = sampled_params[iteration]   
+            if np.any(q0 != old_params):
+                naccepts += 1
+                naccepts100win += 1
             
     except Exception as e:
         traceback.print_exc()
@@ -76,7 +87,6 @@ def _setup_mp_dream_pool(nchains, niterations, step_instance, start_pt=None):
         len_old_history = len(old_history.flatten())
         nold_history_records = len_old_history/step_instance.total_var_dimension
         step_instance.nseedchains = nold_history_records
-        
         if niterations < step_instance.history_thin:
             arr_dim = ((np.floor(nchains*niterations/step_instance.history_thin)+nchains)*step_instance.total_var_dimension)+len_old_history
         else:
