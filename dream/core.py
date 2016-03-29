@@ -107,10 +107,15 @@ def _setup_mp_dream_pool(nchains, niterations, step_instance, start_pt=None):
     if step_instance.history_file != False:
         history_arr[0:len_old_history] = old_history.flatten()
     nCR = step_instance.nCR
+    ngamma = step_instance.ngamma
     crossover_setting = step_instance.CR_probabilities
-    crossover_probabilities = mp.Array('d', crossover_setting)   
+    crossover_probabilities = mp.Array('d', crossover_setting)  
     ncrossover_updates = mp.Array('d', [0]*nCR)
     delta_m = mp.Array('d', [0]*nCR)
+    gamma_level_setting = step_instance.gamma_probabilities
+    gamma_probabilities = mp.Array('d', gamma_level_setting)
+    ngamma_updates = mp.Array('d', [0]*ngamma)
+    delta_m_gamma = mp.Array('d', [0]*ngamma)
     current_position_arr = mp.Array('d', [0]*current_position_dim)
     shared_nchains = mp.Value('i', nchains)
     n = mp.Value('i', 0)
@@ -124,16 +129,19 @@ def _setup_mp_dream_pool(nchains, niterations, step_instance, start_pt=None):
             print('Warning: start position provided but random_start set to True.  Overrode random_start value and starting walk at provided start position.')
             step_instance.start_random = False
 
-    p = DreamPool(nchains, initializer=_mp_dream_init, initargs=(history_arr, current_position_arr, shared_nchains, crossover_probabilities, ncrossover_updates, delta_m, n, tf, ))
+    p = DreamPool(nchains, initializer=_mp_dream_init, initargs=(history_arr, current_position_arr, shared_nchains, crossover_probabilities, ncrossover_updates, delta_m, gamma_probabilities, ngamma_updates, delta_m_gamma, n, tf, ))
     
     return p
 
-def _mp_dream_init(arr, cp_arr, nchains, crossover_probs, ncrossover_updates, delta_m, val, switch):
+def _mp_dream_init(arr, cp_arr, nchains, crossover_probs, ncrossover_updates, delta_m, gamma_probs, ngamma_updates, delta_m_gamma, val, switch):
       Dream_shared_vars.history = arr
       Dream_shared_vars.current_positions = cp_arr
       Dream_shared_vars.nchains = nchains
       Dream_shared_vars.cross_probs = crossover_probs
       Dream_shared_vars.ncr_updates = ncrossover_updates
       Dream_shared_vars.delta_m = delta_m
+      Dream_shared_vars.gamma_level_probs = gamma_probs
+      Dream_shared_vars.ngamma_updates = ngamma_updates
+      Dream_shared_vars.delta_m_gamma = delta_m_gamma
       Dream_shared_vars.count = val
       Dream_shared_vars.history_seeded = switch
