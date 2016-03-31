@@ -15,6 +15,7 @@ from datetime import datetime
 import traceback
 import multiprocess as mp
 import multiprocess.pool as mp_pool
+import time
 
 class Dream():
     """An implementation of the MT-DREAM(ZS) algorithm introduced in:
@@ -144,6 +145,7 @@ class Dream():
         self.gamma = None
         self.iter = 0  
         self.chain_n = None
+        self.nchains = None
         self.len_history = 0
         self.save_history = save_history
         self.history_file = history_file
@@ -299,7 +301,7 @@ class Dream():
                 with Dream_shared_vars.history.get_lock() and Dream_shared_vars.count.get_lock():
                     self.record_history(self.nseedchains, self.total_var_dimension, q_new, self.len_history)
             
-            if self.iter < self.crossover_burnin:
+            if self.iter < self.crossover_burnin+1:
                 with Dream_shared_vars.current_positions.get_lock():
                     self.set_current_position_arr(self.total_var_dimension, q_new)
                     
@@ -317,6 +319,42 @@ class Dream():
             if self.adapt_gamma and self.iter > 10 and self.iter < self.crossover_burnin and not np.any(np.array(self.gamma)==1.0) and not run_snooker:
                with Dream_shared_vars.gamma_level_probs.get_lock() and Dream_shared_vars.count.get_lock() and Dream_shared_vars.ngamma_updates.get_lock() and Dream_shared_vars.current_positions.get_lock() and Dream_shared_vars.delta_m_gamma.get_lock():
                    self.gamma_probabilities = self.estimate_gamma_level_probs(self.total_var_dimension, q0, q_new, gamma_level)
+            
+            if self.iter == self.crossover_burnin:
+                #To ensure all chains use the same fitted shared probability values, wait for all parallel chains to reach end of burnin period before grabbing shared probabilities
+                with Dream_shared_vars.nchains.get_lock():
+                    Dream_shared_vars.nchains.value += 1 
+                    nchains_finished_burnin = Dream_shared_vars.nchains.value
+                    print 'Chains finished: ',nchains_finished_burnin,' of ',self.nchains,' chains.'                   
+                
+                if self.adapt_gamma:
+                    with Dream_shared_vars.gamma_level_probs.get_lock() and Dream_shared_vars.count.get_lock() and Dream_shared_vars.ngamma_updates.get_lock() and Dream_shared_vars.current_positions.get_lock() and Dream_shared_vars.delta_m_gamma.get_lock():
+                        self.gamma_probabilities = self.estimate_gamma_level_probs(self.total_var_dimension, q0, q_new, gamma_level)
+                
+                if self.adapt_crossover:
+                    with Dream_shared_vars.cross_probs.get_lock() and Dream_shared_vars.count.get_lock() and Dream_shared_vars.ncr_updates.get_lock() and Dream_shared_vars.current_positions.get_lock() and Dream_shared_vars.delta_m.get_lock():
+                        #If a snooker update was run, then regardless of the originally selected CR, a CR=1.0 was used.
+                        if not run_snooker:
+                            self.CR_probabilities = self.estimate_crossover_probabilities(self.total_var_dimension, q0, q_new, CR) 
+                        else:
+                            self.CR_probabilities = self.estimate_crossover_probabilities(self.total_var_dimension, q0, q_new, CR=1)
+                
+                while nchains_finished_burnin != self.nchains:
+                    time.sleep(30)
+                    with Dream_shared_vars.nchains.get_lock():
+                        nchains_finished_burnin = Dream_shared_vars.nchains.value    
+                print 'Chain: ',self.chain_n,' exited sleeping loop.'
+                time.sleep(10)
+                
+                if self.adapt_gamma:
+                    with Dream_shared_vars.gamma_level_probs.get_lock():
+                        self.gamma_probabilities = Dream_shared_vars.gamma_level_probs[0:self.ngamma]
+                
+                if self.adapt_crossover:
+                    with Dream_shared_vars.cross_probs.get_lock():
+                        self.CR_probabilities = Dream_shared_vars.cross_probs[0:self.nCR]
+                               
+                    print 'CR probs: ',self.CR_probabilities,' and gamma probs: ',self.gamma_probabilities,' in chain: ',self.chain_n
         
             joint_probs = [np.array(self.CR_probabilities)*self.gamma_probabilities[ngamma] for ngamma in range(self.ngamma)]
             
@@ -331,13 +369,18 @@ class Dream():
         
     def set_current_position_arr(self, ndimensions, q_new):
         """Add current position of chain to shared array available to other chains."""
+        
+        if self.nchains == None:
+           current_positions = np.frombuffer(Dream_shared_vars.current_positions.get_obj()) 
+           self.nchains = len(current_positions)/ndimensions  
+        
         if self.chain_n == None:
             with Dream_shared_vars.nchains.get_lock():
                 self.chain_n = Dream_shared_vars.nchains.value-1
                 Dream_shared_vars.nchains.value -= 1
         
         #We only need to have the current position of all chains for estimating the crossover probabilities during burn-in so don't bother updating after that
-        if self.iter < self.crossover_burnin:
+        if self.iter < self.crossover_burnin+1:
             start_cp = self.chain_n*ndimensions
             end_cp = start_cp+ndimensions
             Dream_shared_vars.current_positions[start_cp:end_cp] = np.array(q_new).flatten()        
@@ -353,9 +396,9 @@ class Dream():
         Dream_shared_vars.ncr_updates[m_loc] += 1   
         
         current_positions = np.frombuffer(Dream_shared_vars.current_positions.get_obj())
-        nchains = len(current_positions)/ndim
+        
 
-        current_positions = current_positions.reshape((nchains, ndim))
+        current_positions = current_positions.reshape((self.nchains, ndim))
         
         sd_by_dim = np.std(current_positions, axis=0)
         
@@ -370,7 +413,7 @@ class Dream():
         if np.all(delta_ms != 0) == True:
 
             for m in range(self.nCR):
-                cross_probs[m] = (Dream_shared_vars.delta_m[m]/Dream_shared_vars.ncr_updates[m])*nchains
+                cross_probs[m] = (Dream_shared_vars.delta_m[m]/Dream_shared_vars.ncr_updates[m])*self.nchains
             cross_probs = cross_probs/np.sum(cross_probs)
         
         Dream_shared_vars.cross_probs[0:self.nCR] = cross_probs
@@ -381,9 +424,8 @@ class Dream():
     
     def estimate_gamma_level_probs(self, ndim, q0, q_new, gamma_level):
         current_positions = np.frombuffer(Dream_shared_vars.current_positions.get_obj())
-        nchains = len(current_positions)/ndim
 
-        current_positions = current_positions.reshape((nchains, ndim))
+        current_positions = current_positions.reshape((self.nchains, ndim))
 
         sd_by_dim = np.std(current_positions, axis=0)
         
@@ -400,7 +442,7 @@ class Dream():
         if np.all(delta_ms_gamma != 0) == True:
                 
             for m in range(self.ngamma):
-                gamma_level_probs[m] = (Dream_shared_vars.delta_m_gamma[m]/Dream_shared_vars.ngamma_updates[m])*nchains
+                gamma_level_probs[m] = (Dream_shared_vars.delta_m_gamma[m]/Dream_shared_vars.ngamma_updates[m])*self.nchains
                 
             gamma_level_probs = gamma_level_probs/np.sum(gamma_level_probs)
             
@@ -673,6 +715,11 @@ class Dream():
         filename = prefix+'DREAM_chain_adapted_crossoverprob.npy'
         print('Saving fitted crossover values: ',self.CR_probabilities,' to file: ',filename)
         np.save(filename, self.CR_probabilities)
+        
+        #Also save gamma level probabilities
+        filename = prefix+'DREAM_chain_adapted_gammalevelprob.npy'
+        print('Saving fitted gamma level values: ',self.gamma_probabilities,' to file: ',filename)
+        np.save(filename, self.gamma_probabilities)
     
 def call_logp(args):
     #Defined at top level so it can be pickled.
