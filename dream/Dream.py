@@ -325,7 +325,6 @@ class Dream():
                 with Dream_shared_vars.nchains.get_lock():
                     Dream_shared_vars.nchains.value += 1 
                     nchains_finished_burnin = Dream_shared_vars.nchains.value
-                    print 'Chains finished: ',nchains_finished_burnin,' of ',self.nchains,' chains.'                   
                 
                 if self.adapt_gamma:
                     with Dream_shared_vars.gamma_level_probs.get_lock() and Dream_shared_vars.count.get_lock() and Dream_shared_vars.ngamma_updates.get_lock() and Dream_shared_vars.current_positions.get_lock() and Dream_shared_vars.delta_m_gamma.get_lock():
@@ -343,7 +342,6 @@ class Dream():
                     time.sleep(30)
                     with Dream_shared_vars.nchains.get_lock():
                         nchains_finished_burnin = Dream_shared_vars.nchains.value    
-                print 'Chain: ',self.chain_n,' exited sleeping loop.'
                 time.sleep(10)
                 
                 if self.adapt_gamma:
@@ -355,10 +353,6 @@ class Dream():
                         self.CR_probabilities = Dream_shared_vars.cross_probs[0:self.nCR]
                                
                     print 'CR probs: ',self.CR_probabilities,' and gamma probs: ',self.gamma_probabilities,' in chain: ',self.chain_n
-        
-            joint_probs = [np.array(self.CR_probabilities)*self.gamma_probabilities[ngamma] for ngamma in range(self.ngamma)]
-            
-            print 'joint probabilities: ',joint_probs
             
             self.iter += 1
         except Exception as e:
