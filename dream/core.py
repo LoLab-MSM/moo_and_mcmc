@@ -123,6 +123,8 @@ def _setup_mp_dream_pool(nchains, niterations, step_instance, start_pt=None):
     
     if step_instance.crossover_burnin == None:
         step_instance.crossover_burnin = int(np.floor(niterations/10))
+    
+    step_instance.adaptation_burnin = step_instance.adaptation_burnin*step_instance.crossover_burnin
         
     if start_pt != None:
         if step_instance.start_random:

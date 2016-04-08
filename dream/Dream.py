@@ -63,7 +63,7 @@ class Dream():
         A model name to be used as a prefix when saving history and crossover value files.
     """
     
-    def __init__(self, model, variables=None, nseedchains=None, nCR=3, adapt_crossover=True, adapt_gamma=False, crossover_burnin=None, DEpairs=1, lamb=.05, zeta=1e-12, history_thin=10, snooker=.10, p_gamma_unity=.20, gamma_levels=1, start_random=True, save_history=True, history_file=False, crossover_file=False, gamma_file=False, multitry=False, parallel=False, verbose=False, model_name=False, **kwargs):
+    def __init__(self, model, variables=None, nseedchains=None, nCR=3, adapt_crossover=True, adapt_gamma=False, crossover_burnin=None, adaptation_burnin=.10, DEpairs=1, lamb=.05, zeta=1e-12, history_thin=10, snooker=.10, p_gamma_unity=.20, gamma_levels=1, start_random=True, save_history=True, history_file=False, crossover_file=False, gamma_file=False, multitry=False, parallel=False, verbose=False, model_name=False, **kwargs):
         
         self.model = model
         self.model_name = model_name
@@ -75,6 +75,7 @@ class Dream():
         self.ngamma = gamma_levels
         self.njoint_cr_gamma_probs = nCR*gamma_levels
         self.crossover_burnin = crossover_burnin
+        self.adaptation_burnin = adaptation_burnin
         self.crossover_file = crossover_file
         if crossover_file:
             self.CR_probabilities = np.load(crossover_file)
@@ -308,7 +309,7 @@ class Dream():
             #If adapting crossover values, estimate ideal crossover probabilities for each dimension during burn-in.
             #Don't do this for the first 10 iterations to give all chains a chance to fill in the shared current position array
             #Don't count iterations where gamma was set to 1 in crossover adaptation calculations
-            if self.adapt_crossover and self.iter > 10 and self.iter < self.crossover_burnin and not np.any(np.array(self.gamma)==1.0):
+            if self.adapt_crossover and self.iter > self.adaptation_burnin and self.iter < self.crossover_burnin and not np.any(np.array(self.gamma)==1.0):
                 with Dream_shared_vars.cross_probs.get_lock() and Dream_shared_vars.count.get_lock() and Dream_shared_vars.ncr_updates.get_lock() and Dream_shared_vars.current_positions.get_lock() and Dream_shared_vars.delta_m.get_lock():
                     #If a snooker update was run, then regardless of the originally selected CR, a CR=1.0 was used.
                     if not run_snooker:
@@ -316,7 +317,7 @@ class Dream():
                     else:
                         self.CR_probabilities = self.estimate_crossover_probabilities(self.total_var_dimension, q0, q_new, CR=1)
             
-            if self.adapt_gamma and self.iter > 10 and self.iter < self.crossover_burnin and not np.any(np.array(self.gamma)==1.0) and not run_snooker:
+            if self.adapt_gamma and self.iter > self.adaptation_burnin and self.iter < self.crossover_burnin and not np.any(np.array(self.gamma)==1.0) and not run_snooker:
                with Dream_shared_vars.gamma_level_probs.get_lock() and Dream_shared_vars.count.get_lock() and Dream_shared_vars.ngamma_updates.get_lock() and Dream_shared_vars.current_positions.get_lock() and Dream_shared_vars.delta_m_gamma.get_lock():
                    self.gamma_probabilities = self.estimate_gamma_level_probs(self.total_var_dimension, q0, q_new, gamma_level)
             
@@ -352,7 +353,7 @@ class Dream():
                     with Dream_shared_vars.cross_probs.get_lock():
                         self.CR_probabilities = Dream_shared_vars.cross_probs[0:self.nCR]
                                
-                    print 'CR probs: ',self.CR_probabilities,' and gamma probs: ',self.gamma_probabilities,' in chain: ',self.chain_n
+            print 'CR probs: ',self.CR_probabilities,' and gamma probs: ',self.gamma_probabilities,' in chain: ',self.chain_n
             
             self.iter += 1
         except Exception as e:
