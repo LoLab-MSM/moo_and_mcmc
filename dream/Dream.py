@@ -141,7 +141,6 @@ class Dream():
                 gamma_array[gamma_level-1, delta-1, :] = (2.38 / np.sqrt(2*delta*np.linspace(1, self.total_var_dimension, num=self.total_var_dimension)))/gamma_level_decrease
             gamma_level_decrease = gamma_level_decrease*2
         self.gamma_arr = np.squeeze(gamma_array)
-        print 'self.gamma_array: ',self.gamma_arr
         self.gamma = None
         self.iter = 0  
         self.chain_n = None
@@ -154,7 +153,7 @@ class Dream():
         self.verbose = verbose
         self.logp = self.model.total_logp
     
-    def astep(self, q0):
+    def astep(self, q0, T=1., last_loglike=None, last_logprior=None):
         # On first iteration, check that shared variables have been initialized (which only occurs if multiple chains have been started).
         if self.iter == 0:   
  
@@ -197,7 +196,11 @@ class Dream():
                 raise Exception('Dream should be run with multiple chains in parallel.  Set nchains > 1.')          
         
         try:
-
+            if last_loglike != None:
+                self.last_like = last_loglike
+                self.last_prior = last_logprior
+                self.last_logp = T*self.last_like + self.last_prior
+                
             #Determine whether to run snooker update or not for this iteration.
             run_snooker = self.set_snooker()
             
@@ -220,15 +223,19 @@ class Dream():
                     proposed_pts, snooker_logp_prop, z = self.generate_proposal_points(self.multitry, q0, CR, DEpair_choice, gamma_level, snooker=True)                 
                     
             if self.last_logp == None:
-                self.last_logp = self.logp(q0)            
+                self.last_prior, self.last_like = self.logp(q0)
+                self.last_logp = T*self.last_like + self.last_prior
             
             #Evaluate logp(s)
             if self.multitry == 1:
-                q_logp = self.logp(np.squeeze(proposed_pts))
+                q_prior, q_loglike_noT = self.logp(np.squeeze(proposed_pts)) 
+                q_logp_noT = q_prior + q_loglike_noT
+                q_logp = T*q_loglike_noT + q_prior
                 q = np.squeeze(proposed_pts)
             else:
                 
-                log_ps = self.mt_evaluate_logps(self.parallel, self.multitry, proposed_pts, self.logp, ref=False)
+                log_priors, log_likes = self.mt_evaluate_logps(self.parallel, self.multitry, proposed_pts, self.logp, ref=False)
+                log_ps = T*log_likes + log_priors
                     
                 #Check if all logps are -inf, in which case they'll all be impossible and we need to generate more proposal points
                 while np.all(np.isfinite(np.array(log_ps))==False):
@@ -237,9 +244,11 @@ class Dream():
                     else:
                         proposed_pts = self.generate_proposal_points(self.multitry, q0, CR, DEpair_choice, gamma_level, snooker=run_snooker)
                         
-                    log_ps = self.mt_evaluate_logps(self.parallel, self.multitry, proposed_pts, self.logp, ref=False)
+                    log_priors, log_likes = self.mt_evaluate_logps(self.parallel, self.multitry, proposed_pts, self.logp, ref=False)
+                    log_ps = T*log_likes + log_priors
                     
-                q_proposal, q_logp = self.mt_choose_proposal_pt(log_ps, proposed_pts)
+                q_proposal, q_logp, q_logp_noT, q_loglike_noT, q_prior = self.mt_choose_proposal_pt(log_priors, log_likes, proposed_pts, T)
+                
             
                 #Draw reference points around the randomly selected proposal point
                 with Dream_shared_vars.history.get_lock() and Dream_shared_vars.count.get_lock():
@@ -249,7 +258,8 @@ class Dream():
                         reference_pts = self.generate_proposal_points(self.multitry-1, q_proposal, CR, DEpair_choice, gamma_level, snooker=run_snooker)
                     
                 #Compute posterior density at reference points.
-                ref_log_ps = self.mt_evaluate_logps(self.parallel, self.multitry, reference_pts, self.logp, ref=True)
+                ref_log_priors, ref_log_likes = self.mt_evaluate_logps(self.parallel, self.multitry, reference_pts, self.logp, ref=True)
+                ref_log_ps = T*ref_log_likes + ref_log_priors
         
             if self.multitry > 1:
                 if run_snooker:
@@ -269,7 +279,7 @@ class Dream():
                 max_logp = np.amax(np.concatenate((total_proposal_logp, total_reference_logp)))
                 weight_proposed = np.exp(total_proposal_logp - max_logp)
                 weight_reference = np.exp(total_reference_logp - max_logp)
-                q_new = metrop_select(np.nan_to_num(np.log(np.sum(weight_proposed)/np.sum(weight_reference))), q_proposal, q0)
+                q_new = metrop_select(np.log(np.sum(weight_proposed)/np.sum(weight_reference)), q_proposal, q0)
                 
             else:  
                 if run_snooker:
@@ -283,17 +293,19 @@ class Dream():
                     
             if not np.array_equal(q0, q_new):
                 if self.multitry==1:
-                    print('Accepted point.  New logp: ',q_logp,' old logp: ',self.last_logp)
+                    print('Accepted point.  New logp: ',q_logp,' old logp: ',self.last_logp, ' at temperature: ',T)
                     
                 else: 
-                    print('Accepted point.  New logp: ',q_logp,' old logp: ',self.last_logp,' weight proposed: ',log_ps,' weight ref: ',ref_log_ps,' ratio: ',np.sum(weight_proposed)/np.sum(weight_reference))
-                self.last_logp = q_logp
+                    print('Accepted point.  New logp: ',q_logp,' old logp: ',self.last_logp,' weight proposed: ',log_ps,' weight ref: ',ref_log_ps,' ratio: ',np.sum(weight_proposed)/np.sum(weight_reference),' at temperature: ',T)
+                self.last_logp = q_logp_noT
+                self.last_prior = q_prior
+                self.last_like = q_loglike_noT
             else:
                 if self.multitry==1:
-                    print('Did not accept point.  Kept old logp: ',self.last_logp,' Tested logp: ',q_logp)
+                    print('Did not accept point.  Kept old logp: ',self.last_logp,' Tested logp: ',q_logp,' at temperature: ',T)
                 
                 else:
-                    print('Did not accept point.  Kept old logp: ',self.last_logp,' Tested logp: ',q_logp,' weight proposed: ',log_ps,' weight ref: ',ref_log_ps,' ratio: ',np.sum(weight_proposed)/np.sum(weight_reference))
+                    print('Did not accept point.  Kept old logp: ',self.last_logp,' Tested logp: ',q_logp,' weight proposed: ',log_ps,' weight ref: ',ref_log_ps,' ratio: ',np.sum(weight_proposed)/np.sum(weight_reference),' at temperature: ',T)
                 
         
             #Place new point in history given history thinning rate
@@ -359,7 +371,7 @@ class Dream():
             traceback.print_exc()
             print()
             raise e
-        return q_new, self.last_logp
+        return q_new, self.last_prior, self.last_like
         
     def set_current_position_arr(self, ndimensions, q_new):
         """Add current position of chain to shared array available to other chains."""
@@ -493,7 +505,13 @@ class Dream():
             gamma = 1.0
         
         else:
-            gamma = self.gamma_arr[gamma_level_choice-1][DEpairs-1][d_prime-1]
+            if self.ngamma == 1:
+                if self.DEpairs == 1:
+                    gamma = self.gamma_arr[d_prime-1]
+                else:
+                    gamma = self.gamma_arr[DEpairs-1][d_prime-1]
+            else:
+                gamma = self.gamma_arr[gamma_level_choice-1][DEpairs-1][d_prime-1]
             
         return gamma
 
@@ -638,7 +656,7 @@ class Dream():
         
         return proposed_pts, snooker_logp, sampled_history_pt
     
-    def mt_evaluate_logps(self, parallel, multitry, proposed_pts, logp, ref=False):
+    def mt_evaluate_logps(self, parallel, multitry, proposed_pts, pfunc, ref=False):
         """Evaluate the log probability for multiple points in serial or parallel when using multi-try."""
         
         #If using multi-try and running in parallel farm out proposed points to process pool.
@@ -650,24 +668,32 @@ class Dream():
             p.join()
             
         else:
-            log_ps = []
+            log_priors = []
+            log_likes = []
             if multitry == 2:
-                log_ps = np.array([logp(np.squeeze(proposed_pts))])
+                log_priors, log_likes = np.array([pfunc(np.squeeze(proposed_pts))])
             else:
                 for pt in np.squeeze(proposed_pts):
-                    log_ps.append(logp(pt))        
+                    log_priors.append(pfunc(pt)[0])  
+                    log_likes.append(pfunc(pt)[1])
         
-        log_ps = np.array(log_ps)  
+        log_priors = np.array(log_priors)  
+        log_likes = np.array(log_likes)
         
         if ref:
-            log_ps = np.append(log_ps, self.last_logp)
+            log_likes = np.append(log_likes, self.last_like)
+            log_priors = np.append(log_priors, self.last_prior)
             
-        return log_ps
+        return log_priors, log_likes
 
-    def mt_choose_proposal_pt(self, log_ps, proposed_pts):
+    def mt_choose_proposal_pt(self, log_priors, log_likes, proposed_pts, T):
         """Select a proposed point with probability proportional to the probability density at that point."""
         
         #Substract largest logp from all logps (this from original Matlab code)
+        org_log_likes = log_likes
+        log_likes = T * log_likes
+        log_ps = log_priors + log_likes
+        noT_logp = org_log_likes + log_priors
         max_logp = np.amax(log_ps)
         log_ps_sub = np.exp(log_ps - max_logp)
 
@@ -678,9 +704,11 @@ class Dream():
 
         #Randomly select one of the tested points with probability proportional to the probability density at the point
         q_proposal = np.squeeze(proposed_pts[best_logp_loc])
-        q_logp = log_ps[best_logp_loc]    
+        q_logp = log_ps[best_logp_loc] 
+        q_prior = log_priors[best_logp_loc]
+        noT_loglike = org_log_likes[best_logp_loc]
         
-        return q_proposal, q_logp
+        return q_proposal, q_logp, noT_logp, noT_loglike, q_prior
         
     def record_history(self, nseedchains, ndimensions, q_new, len_history):
         """Record accepted point in history."""

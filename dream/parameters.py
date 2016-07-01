@@ -30,7 +30,8 @@ class NormalParam(SampledParam):
     def prior(self, q0):
         if self.dis == None:
             self.dis = norm(loc=self.mu, scale=self.sd)
-        return np.sum(self.dis.logpdf(q0))
+        logp = np.sum(self.dis.logpdf(q0))
+        return logp
 
 class UniformParam(SampledParam):
     def __init__(self, name, value, lower, upper):
@@ -48,7 +49,8 @@ class UniformParam(SampledParam):
     def prior(self, q0):
         if self.dis == None:
             self.dis = uniform(loc=self.lower, scale=self.range)
-        return np.sum(self.dis.logpdf(q0))
+        logp = np.sum(self.dis.logpdf(q0))
+        return logp
     
 class FlatParam(SampledParam):
     def __init__(self, name, value):

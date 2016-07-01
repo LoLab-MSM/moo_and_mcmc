@@ -13,7 +13,7 @@ from Dream import Dream, DreamPool
 from model import Model
 import traceback
 
-def run_dream(parameters, likelihood, nchains=5, niterations=50000, start=None, restart=False, verbose=True, **kwargs):
+def run_dream(parameters, likelihood, nchains=5, niterations=50000, start=None, restart=False, verbose=True, tempering=False, **kwargs):
 
     if restart:
         if start == None:
@@ -30,15 +30,21 @@ def run_dream(parameters, likelihood, nchains=5, niterations=50000, start=None, 
         step_instance = Dream(model=model, variables=parameters, **kwargs)
 
     pool = _setup_mp_dream_pool(nchains, niterations, step_instance, start_pt=start)
-    
-    if type(start) is list:
-        args = zip([step_instance]*nchains, [niterations]*nchains, start)
-    else:
-        args = zip([step_instance]*nchains, [niterations]*nchains, [start]*nchains)  
 
-    returned_vals = pool.map(sample_dream, args)
-    sampled_params = [val[0] for val in returned_vals]
-    log_ps = [val[1] for val in returned_vals]   
+    if tempering:        
+        
+        sampled_params, log_ps = sample_dream_pt(nchains, niterations, step_instance, start, pool)
+    
+    else:
+    
+        if type(start) is list:
+            args = zip([step_instance]*nchains, [niterations]*nchains, start)
+        else:
+            args = zip([step_instance]*nchains, [niterations]*nchains, [start]*nchains)  
+
+        returned_vals = pool.map(sample_dream, args)
+        sampled_params = [val[0] for val in returned_vals]
+        log_ps = [val[1] for val in returned_vals]   
     
     return sampled_params, log_ps
 
@@ -63,7 +69,7 @@ def sample_dream(args):
                     print('Iteration: ',iteration,' acceptance rate over last 100 iterations: ',acceptance_rate_100win)
                     naccepts100win = 0
             old_params = q0
-            sampled_params[iteration], log_ps[iteration] = step_fxn(q0)
+            sampled_params[iteration], log_ps[iteration] , noTlogp = step_fxn(q0)
             q0 = sampled_params[iteration]   
             if np.any(q0 != old_params):
                 naccepts += 1
@@ -76,6 +82,117 @@ def sample_dream(args):
 
     return sampled_params, log_ps
 
+def sample_dream_pt(nchains, niterations, step_instance, start, pool):
+    
+    T = np.zeros((nchains))
+    T[0] = 1.
+    for i in range(nchains):
+        T[i] = np.power(.001, (float(i)/nchains))
+    
+    print 'Temperatures: ',T
+    
+    step_instances = [step_instance]*nchains   
+    
+    if type(start) is list:
+        args = zip(step_instances, start, T, [None]*nchains, [None]*nchains)
+    else:
+        args = zip(step_instances, [start]*nchains, T, [None]*nchains, [None]*nchains)  
+        
+    sampled_params = np.zeros((nchains, niterations, step_instance.total_var_dimension))
+    log_ps = np.zeros((nchains, niterations, 1)) 
+    
+    q0 = start
+    naccepts = np.zeros((nchains))
+    naccepts100win = np.zeros((nchains))
+    nacceptsT = np.zeros((nchains))
+    nacceptsT100win = np.zeros((nchains))
+    
+    for iteration in range(niterations):
+        itidx = iteration*2
+        if iteration%10 == 0:
+            acceptance_rate = naccepts/(itidx+1)
+            Tacceptance_rate = nacceptsT/(iteration+1)
+            overall_Tacceptance_rate = np.sum(nacceptsT)/(iteration+1)
+            print('Iteration: ',iteration,' overall acceptance rate: ',acceptance_rate,' temp swap acceptance rate per chain: ',Tacceptance_rate,' and overall temp swap acceptance rate: ',overall_Tacceptance_rate)
+            if iteration%100 == 0:
+                acceptance_rate_100win = naccepts100win/(100*2)
+                Tacceptance_rate_100win = nacceptsT100win/100
+                overall_Tacceptance_rate_100win = np.sum(nacceptsT100win)/100
+                print('Iteration: ',iteration,' overall acceptance rate over last 100 iterations: ',acceptance_rate_100win,' temp swap acceptance rate: ',Tacceptance_rate_100win,' and overall temp swap acceptance rate: ',overall_Tacceptance_rate_100win)
+                naccepts100win = np.zeros((nchains))
+                nacceptsT100win = np.zeros((nchains))
+
+        returned_vals = pool.map(_sample_dream_pt, args)
+        qnews = [val[0] for val in returned_vals]
+        logprinews = [val[1] for val in returned_vals]
+        loglikenews = [val[2] for val in returned_vals]
+        dream_instances = [val[3] for val in returned_vals]
+        logpnews = [T[i]*loglikenews[i] + logprinews[i] for i in range(nchains)]       
+        
+        for chain in range(nchains):
+            sampled_params[chain][itidx] = qnews[chain]
+            log_ps[chain][itidx] = logpnews[chain]
+
+        random_chains = np.random.choice(nchains, 2, replace=False)
+        loglike1 = loglikenews[random_chains[0]]
+        T1 = T[random_chains[0]]
+        loglike2 = loglikenews[random_chains[1]]
+        T2 = T[random_chains[1]]
+        logp1 = logpnews[random_chains[0]]
+        logp2 = logpnews[random_chains[1]]
+        
+            
+        alpha = ((T1*loglike2)+(T2*loglike1))-((T1*loglike1)+(T2*loglike2))
+        
+        if np.log(np.random.uniform()) < alpha:
+            print('Accepted temperature swap of chains: ',random_chains,' at temperatures: ',T1,' and ',T2,' and logps: ',logp1,' and ',logp2)
+            nacceptsT[random_chains[0]] += 1
+            nacceptsT[random_chains[1]] += 1
+            nacceptsT100win[random_chains[0]] += 1
+            nacceptsT100win[random_chains[1]] += 1           
+            old_qs = list(qnews)
+            old_logps = list(logpnews)
+            old_loglikes = list(loglikenews)
+            old_logpri = list(logprinews)
+            qnews[random_chains[0]] = old_qs[random_chains[1]]
+            qnews[random_chains[1]] = old_qs[random_chains[0]]
+            logpnews[random_chains[0]] = old_logps[random_chains[1]]
+            logpnews[random_chains[1]] = old_logps[random_chains[0]]
+            loglikenews[random_chains[0]] = old_loglikes[random_chains[1]]
+            loglikenews[random_chains[1]] = old_loglikes[random_chains[0]]
+            logprinews[random_chains[0]] = old_logpri[random_chains[1]]
+            logprinews[random_chains[1]] = old_logpri[random_chains[0]]
+        else:
+            print('Did not accept temperature swap of chains: ',random_chains,' at temperatures: ',T1,' and ',T2,' and logps: ',logp1,' and ',logp2)
+        
+        for chain in range(nchains):
+            sampled_params[chain][itidx+1] = qnews[chain]
+            log_ps[chain][itidx+1] = logpnews[chain]
+                
+        for i, q in enumerate(qnews):
+            if not np.all(q == q0[i]):
+                naccepts[i] += 1
+                naccepts100win[i] += 1
+            
+        args = zip(dream_instances, qnews, T, loglikenews, logprinews)
+        q0 = qnews
+    
+    return sampled_params, log_ps
+            
+
+def _sample_dream_pt(args):
+
+    dream_instance = args[0]
+    start = args[1]
+    T = args[2]
+    last_loglike = args[3]
+    last_logpri = args[4]
+    step_fxn = getattr(dream_instance, 'astep')
+    q1, logprior1, loglike1 = step_fxn(start, T, last_loglike, last_logpri)
+    
+    return q1, logprior1, loglike1, dream_instance
+            
+    
 
 def _setup_mp_dream_pool(nchains, niterations, step_instance, start_pt=None):
     
@@ -104,6 +221,7 @@ def _setup_mp_dream_pool(nchains, niterations, step_instance, start_pt=None):
         
     current_position_dim = nchains*step_instance.total_var_dimension
     history_arr = mp.Array('d', [0]*arr_dim)
+    print 'Created history array.'
     if step_instance.history_file != False:
         history_arr[0:len_old_history] = old_history.flatten()
     nCR = step_instance.nCR
@@ -130,6 +248,7 @@ def _setup_mp_dream_pool(nchains, niterations, step_instance, start_pt=None):
             step_instance.start_random = False
 
     p = DreamPool(nchains, initializer=_mp_dream_init, initargs=(history_arr, current_position_arr, shared_nchains, crossover_probabilities, ncrossover_updates, delta_m, gamma_probabilities, ngamma_updates, delta_m_gamma, n, tf, ))
+    print 'Created pool.'    
     
     return p
 
