@@ -69,7 +69,8 @@ def sample_dream(args):
                     print('Iteration: ',iteration,' acceptance rate over last 100 iterations: ',acceptance_rate_100win)
                     naccepts100win = 0
             old_params = q0
-            sampled_params[iteration], log_ps[iteration] , noTlogp = step_fxn(q0)
+            sampled_params[iteration], log_prior , log_like = step_fxn(q0)
+            log_ps[iteration] = log_like + log_prior
             q0 = sampled_params[iteration]   
             if np.any(q0 != old_params):
                 naccepts += 1
@@ -106,17 +107,20 @@ def sample_dream_pt(nchains, niterations, step_instance, start, pool):
     naccepts100win = np.zeros((nchains))
     nacceptsT = np.zeros((nchains))
     nacceptsT100win = np.zeros((nchains))
+    ttestsper100 = 100./nchains
     
     for iteration in range(niterations):
         itidx = iteration*2
         if iteration%10 == 0:
-            acceptance_rate = naccepts/(itidx+1)
-            Tacceptance_rate = nacceptsT/(iteration+1)
+            ttests = iteration/float(nchains)
+            ntests = ttests + iteration
+            acceptance_rate = naccepts/(ntests+1)
+            Tacceptance_rate = nacceptsT/(ttests+1)
             overall_Tacceptance_rate = np.sum(nacceptsT)/(iteration+1)
             print('Iteration: ',iteration,' overall acceptance rate: ',acceptance_rate,' temp swap acceptance rate per chain: ',Tacceptance_rate,' and overall temp swap acceptance rate: ',overall_Tacceptance_rate)
             if iteration%100 == 0:
-                acceptance_rate_100win = naccepts100win/(100*2)
-                Tacceptance_rate_100win = nacceptsT100win/100
+                acceptance_rate_100win = naccepts100win/(100 + ttestsper100)
+                Tacceptance_rate_100win = nacceptsT100win/ttestsper100
                 overall_Tacceptance_rate_100win = np.sum(nacceptsT100win)/100
                 print('Iteration: ',iteration,' overall acceptance rate over last 100 iterations: ',acceptance_rate_100win,' temp swap acceptance rate: ',Tacceptance_rate_100win,' and overall temp swap acceptance rate: ',overall_Tacceptance_rate_100win)
                 naccepts100win = np.zeros((nchains))
@@ -127,7 +131,7 @@ def sample_dream_pt(nchains, niterations, step_instance, start, pool):
         logprinews = [val[1] for val in returned_vals]
         loglikenews = [val[2] for val in returned_vals]
         dream_instances = [val[3] for val in returned_vals]
-        logpnews = [T[i]*loglikenews[i] + logprinews[i] for i in range(nchains)]       
+        logpnews = [T[i]*loglikenews[i] + logprinews[i] for i in range(nchains)]             
         
         for chain in range(nchains):
             sampled_params[chain][itidx] = qnews[chain]
@@ -149,7 +153,7 @@ def sample_dream_pt(nchains, niterations, step_instance, start, pool):
             nacceptsT[random_chains[0]] += 1
             nacceptsT[random_chains[1]] += 1
             nacceptsT100win[random_chains[0]] += 1
-            nacceptsT100win[random_chains[1]] += 1           
+            nacceptsT100win[random_chains[1]] += 1    
             old_qs = list(qnews)
             old_logps = list(logpnews)
             old_loglikes = list(loglikenews)

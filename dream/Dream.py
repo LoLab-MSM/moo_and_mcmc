@@ -297,9 +297,11 @@ class Dream():
                     
                 else: 
                     print('Accepted point.  New logp: ',q_logp,' old logp: ',self.last_logp,' weight proposed: ',log_ps,' weight ref: ',ref_log_ps,' ratio: ',np.sum(weight_proposed)/np.sum(weight_reference),' at temperature: ',T)
+                    
                 self.last_logp = q_logp_noT
                 self.last_prior = q_prior
                 self.last_like = q_loglike_noT
+                
             else:
                 if self.multitry==1:
                     print('Did not accept point.  Kept old logp: ',self.last_logp,' Tested logp: ',q_logp,' at temperature: ',T)
@@ -693,7 +695,7 @@ class Dream():
         org_log_likes = log_likes
         log_likes = T * log_likes
         log_ps = log_priors + log_likes
-        noT_logp = org_log_likes + log_priors
+        noT_logps = org_log_likes + log_priors
         max_logp = np.amax(log_ps)
         log_ps_sub = np.exp(log_ps - max_logp)
 
@@ -707,6 +709,7 @@ class Dream():
         q_logp = log_ps[best_logp_loc] 
         q_prior = log_priors[best_logp_loc]
         noT_loglike = org_log_likes[best_logp_loc]
+        noT_logp = noT_logps[best_logp_loc]
         
         return q_proposal, q_logp, noT_logp, noT_loglike, q_prior
         
