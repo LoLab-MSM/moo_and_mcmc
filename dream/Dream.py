@@ -279,7 +279,7 @@ class Dream():
                 max_logp = np.amax(np.concatenate((total_proposal_logp, total_reference_logp)))
                 weight_proposed = np.exp(total_proposal_logp - max_logp)
                 weight_reference = np.exp(total_reference_logp - max_logp)
-                q_new = metrop_select(np.log(np.sum(weight_proposed)/np.sum(weight_reference)), q_proposal, q0)
+                q_new = metrop_select(np.nan_to_num(np.log(np.sum(weight_proposed)/np.sum(weight_reference))), q_proposal, q0)
                 
             else:  
                 if run_snooker:
@@ -287,9 +287,9 @@ class Dream():
                     snooker_current_logp = np.log(np.linalg.norm(q0-z))*(self.total_var_dimension-1)
                     total_old_logp = self.last_logp + snooker_current_logp
                     
-                    q_new = metrop_select(total_proposed_logp - total_old_logp, q, q0)
+                    q_new = metrop_select(np.nan_to_num(total_proposed_logp - total_old_logp, q, q0))
                 else:
-                    q_new = metrop_select(np.nan_to_num(q_logp) - np.nan_to_num(self.last_logp), q, q0) 
+                    q_new = metrop_select(np.nan_to_num(np.nan_to_num(q_logp) - np.nan_to_num(self.last_logp), q, q0))
                     
             if not np.array_equal(q0, q_new):
                 if self.multitry==1:

@@ -174,9 +174,13 @@ def sample_dream_pt(nchains, niterations, step_instance, start, pool):
             log_ps[chain][itidx+1] = logpnews[chain]
                 
         for i, q in enumerate(qnews):
-            if not np.all(q == q0[i]):
-                naccepts[i] += 1
-                naccepts100win[i] += 1
+            try:
+                if not np.all(q == q0[i]):
+                    naccepts[i] += 1
+                    naccepts100win[i] += 1
+            except TypeError:
+                #On first iteration without starting points this will fail because q0 == None
+                pass
             
         args = zip(dream_instances, qnews, T, loglikenews, logprinews)
         q0 = qnews
