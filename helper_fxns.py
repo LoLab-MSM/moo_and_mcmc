@@ -7,13 +7,7 @@ Created on Fri Dec 26 16:20:59 2014
 
 import numpy as np
 import re
-from pymc.stats import hpd
-import matplotlib.pyplot as plt
-import math
-import pickle
-from pysb.bng import generate_equations
 import os
-import dill
 
 def gelman_rubin_trace_dict(trace_dict, burnin=0):
     Rhat = {}
@@ -54,9 +48,9 @@ def create_trace_matrix(trace_dict, burnin=10000, thin=10, chain_num='all'):
     #Correct for extra param list key
     total_param_dim -= 1
     if chain_num == 'all':
-        trace_arr = np.zeros(((((len(trace_dict[trace_dict.keys()[0]][0])-burnin)*len(trace_dict[trace_dict.keys()[0]]))/thin), total_param_dim))
+        trace_arr = np.zeros(((((len(trace_dict[trace_dict['param_list'][0]][0])-burnin)*len(trace_dict[trace_dict['param_list'][0]]))/thin), total_param_dim))
     else:
-        trace_arr = np.zeros(((len(trace_dict[trace_dict.keys()[0]][chain_num])-burnin)/thin, total_param_dim))
+        trace_arr = np.zeros(((len(trace_dict[trace_dict['param_list'][0]][chain_num])-burnin)/thin, total_param_dim))
         
     for i, key in enumerate(trace_dict['param_list']):
         if chain_num == 'all':
@@ -72,6 +66,25 @@ def create_trace_matrix(trace_dict, burnin=10000, thin=10, chain_num='all'):
             trace_arr[:,i] = trace_dict[key][chain_num][burnin::thin]
     
     return trace_arr
+
+def create_logp_matrix(logp_dict, burnin=10000, thin=10, chain_num='all'):
+    """Create a matrix with only log probabilities corresponding to the thinned and burned-in parameter values."""
+    
+    if chain_num == 'all':
+        chains = range(len(logp_dict))
+    else:
+        chains = [chain_num]
+    
+    chain_list = []
+    for chain in chains:
+        chain_list.append(logp_dict[chain][burnin::thin])
+        
+    if len(chain_list) > 1:
+        logp_matrix = np.concatenate(chain_list)
+    else:
+        logp_matrix = np.array(chain_list[0])
+    
+    return logp_matrix
     
 def find_most_probable_vals(trace_array, trace_dict, axis=0):
     map_vals = {}
@@ -82,7 +95,7 @@ def find_most_probable_vals(trace_array, trace_dict, axis=0):
     
     return map_vals
     
-def sub_parameters(model, param_dict, log=True, KDs=True, generic_kf=1.5e4):
+def sub_parameters(model, param_dict, log=True, KDs=True, generic_kf=1.5e4, verbose=False):
     generic_kf_log = np.log10(generic_kf)
     if KDs == True:
        for param, value in param_dict.items():
@@ -94,29 +107,37 @@ def sub_parameters(model, param_dict, log=True, KDs=True, generic_kf=1.5e4):
                kr_param_name = 'kr'+param_name
                if log == True:
                    model.parameters[kf_param_name].value = 10**generic_kf_log
-                   print 'Changed parameter '+str(kf_param_name)+' to '+str(10**generic_kf_log)
                    model.parameters[kr_param_name].value = 10**(value+generic_kf_log)
-                   print 'Changed parameter '+str(kr_param_name)+' to '+str(10**(value+generic_kf_log))
+                   if verbose:
+                       print 'Changed parameter '+str(kf_param_name)+' to '+str(10**generic_kf_log)
+                       print 'Changed parameter '+str(kr_param_name)+' to '+str(10**(value+generic_kf_log))
+                   
                else:
                    model.parameters[kf_param_name].value = generic_kf
-                   print 'Changed parameter '+str(kf_param_name)+'to '+str(generic_kf)
                    model.parameters[kr_param_name].value = value*generic_kf
-                   print 'Changed parameter '+str(kr_param_name)+' to '+str(value*generic_kf)
+                   
+                   if verbose:
+                       print 'Changed parameter '+str(kf_param_name)+'to '+str(generic_kf)
+                       print 'Changed parameter '+str(kr_param_name)+' to '+str(value*generic_kf)
            else:
                if log == True:
                    model.parameters[param].value = 10**value
-                   print 'Changed parameter '+str(param)+' to '+str(10**value)
+                   if verbose:
+                       print 'Changed parameter '+str(param)+' to '+str(10**value)
                else:
                    model.parameters[param].value = value
-                   print 'Changed parameter '+str(param)+' to '+str(value)
+                   if verbose:
+                       print 'Changed parameter '+str(param)+' to '+str(value)
     else:
         for param, value in param_dict.items():
             if log == True:
                 model.parameters[param].value = 10**value
-                print 'Changed parameter '+str(param)+' to '+str(10**value)
+                if verbose:
+                    print 'Changed parameter '+str(param)+' to '+str(10**value)
             else:
                 model.parameters[param].value = value
-                print 'Changed parameter '+str(param)+' to '+str(value)
+                if verbose:
+                    print 'Changed parameter '+str(param)+' to '+str(value)
                 
 def check_thermoboxes(param_dict, log=True):
     thermo_dict = {}
@@ -140,6 +161,7 @@ def check_thermoboxes(param_dict, log=True):
     return thermo_dict
 
 def calc_credible_intervals(trace_arr, trace_dict, alpha=.05):
+    from pymc3.stats import hpd
     hpd_dict = {}
     
     for i, key in enumerate(trace_dict['param_list']):
@@ -157,6 +179,7 @@ def credible_interval_array(hpd_dict):
     return hpd_array
     
 def plot_histograms(trace_dict, trace_arr, bins=10, plot_original_vals=False, model=None, param_name_change_dict=None, max_yval = .5, title_fontsize=20):
+    import matplotlib.pyplot as plt
     if plot_original_vals==True and model==None:
         raise Exception('Model needs to be specified')
     
@@ -213,6 +236,7 @@ def plot_histograms(trace_dict, trace_arr, bins=10, plot_original_vals=False, mo
     return fig_list, axarr_list
     
 def sample_plots(trace_dict):
+    import matplotlib.pyplot as plt
     if 'param_list' not in trace_dict:
         trace_dict['param_list'] = [key for key in trace_dict.keys()]
     fig_list = []
@@ -221,13 +245,13 @@ def sample_plots(trace_dict):
     nkeys = len(trace_dict.keys())
     fig, axarr = plt.subplots(3, 2)
     axarr = axarr.flatten()
-    iterations = range(len(trace_dict[trace_dict.keys()[0]][0]))
+    iterations = range(len(trace_dict[trace_dict['param_list'][0]][0]))
     print len(iterations)
     print len(trace_dict[trace_dict.keys()[0]])
     print len(trace_dict[trace_dict.keys()[0]][0])
 
     for variable in trace_dict['param_list']:
-        for chain in range(len(trace_dict[trace_dict.keys()[0]])):
+        for chain in range(len(trace_dict[trace_dict['param_list'][0]])):
             axarr[n].plot(iterations, trace_dict[variable][chain])
         axarr[n].set_title(str(variable))
         axarr[n].set_xlabel('Iterations')
@@ -264,6 +288,7 @@ def convert_param_vec_dict_to_param_dict(param_vec_dict, pysb_parameter_list):
     return param_dict
     
 def plot_tsne_data(unique_tsne_output, original_trace_arr, histogram=True, hexbin_gridsize=None):
+    import matplotlib.pyplot as plt
     if histogram == True:
         original_trace_arr = np.ascontiguousarray(original_trace_arr)
         unique_vecs, inv_idx = np.unique(original_trace_arr.view([('', original_trace_arr.dtype)]*original_trace_arr.shape[1]), return_inverse=True)
@@ -278,6 +303,8 @@ def plot_tsne_data(unique_tsne_output, original_trace_arr, histogram=True, hexbi
     return fig
 
 def create_model_files(model, model_name, directory=None):
+    from pysb.bng import generate_equations
+    import dill
     curr_dir = os.getcwd()
     if not model.odes:
         generate_equations(model)
@@ -291,6 +318,7 @@ def create_model_files(model, model_name, directory=None):
     os.chdir(curr_dir)
 
 def load_model_files(model_name, directory=None):
+    import dill
     curr_dir = os.getcwd()
     if directory != None:
         os.chdir(directory)
